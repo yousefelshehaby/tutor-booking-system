@@ -52,7 +52,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
       <header className="border-b border-zinc-200 bg-white">
         {isSuperAdmin && activeTutorName && (
           <div className="bg-blue-50 px-6 py-1.5 text-center text-xs font-medium text-blue-700">
-            أنت الآن تدير: {activeTutorName}
+            أهلاً بيك باشمهندس يوسف، انت الآن تدير: {activeTutorName}
           </div>
         )}
         {isTa && tutorId && taLinks.length > 1 && (
