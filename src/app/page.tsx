@@ -10,6 +10,13 @@ interface TutorListing {
   photo_url: string | null;
 }
 
+// Next.js statically prerendered this page at build time (no dynamic
+// params, no obviously-dynamic data source) — a fresh build's snapshot
+// of the tutor directory then kept being served indefinitely, never
+// reflecting tutors added/removed afterward. The directory must always
+// reflect live data.
+export const dynamic = "force-dynamic";
+
 export default async function RootPage() {
   const supabase = createAnonServerClient();
   const { data } = await supabase.rpc("list_active_tutors");
