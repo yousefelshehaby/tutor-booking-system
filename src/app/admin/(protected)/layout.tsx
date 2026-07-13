@@ -2,18 +2,22 @@ import Link from "next/link";
 import { signOut } from "@/lib/auth/admin-actions";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
+import { NotificationsBell } from "@/components/admin/NotificationsBell";
 
-const NAV_LINKS = [
+const FULL_NAV_LINKS = [
   { href: "/admin/dashboard", label: "لوحة القيادة" },
   { href: "/admin/grades", label: "الصفوف الدراسية" },
   { href: "/admin/groups", label: "المجموعات" },
   { href: "/admin/bookings", label: "الحجوزات" },
   { href: "/admin/monthly-payments", label: "المدفوعات الشهرية" },
   { href: "/admin/settings", label: "الإعدادات" },
+  { href: "/admin/tas", label: "المساعدون" },
 ];
 
+const TA_NAV_LINKS = [{ href: "/admin/bookings", label: "الحجوزات" }];
+
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { isSuperAdmin, tutorId } = await getCurrentAdmin();
+  const { role, isSuperAdmin, isTa, tutorId } = await getCurrentAdmin();
 
   let activeTutorName: string | null = null;
   if (tutorId) {
@@ -22,9 +26,11 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     activeTutorName = data?.name ?? null;
   }
 
-  const navLinks = isSuperAdmin
-    ? [...NAV_LINKS, { href: "/admin/tutors", label: "المدرّسون" }]
-    : NAV_LINKS;
+  const navLinks = isTa
+    ? TA_NAV_LINKS
+    : isSuperAdmin
+      ? [...FULL_NAV_LINKS, { href: "/admin/tutors", label: "المدرّسون" }]
+      : FULL_NAV_LINKS;
 
   return (
     <div className="flex min-h-screen flex-1 flex-col" dir="rtl">
@@ -46,14 +52,17 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
               </Link>
             ))}
           </nav>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              تسجيل الخروج
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            {(role === "tutor" || isSuperAdmin) && <NotificationsBell />}
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                تسجيل الخروج
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 

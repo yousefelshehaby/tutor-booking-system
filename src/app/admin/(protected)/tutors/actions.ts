@@ -57,7 +57,8 @@ export async function createTutor(input: unknown) {
   const { error: adminUserError } = await service.from("admin_users").insert({
     id: authUser.user.id,
     tutor_id: tutor.id,
-    is_super_admin: false,
+    role: "tutor",
+    email: adminEmail,
   });
 
   if (adminUserError) {
@@ -81,6 +82,21 @@ export async function toggleTutorActive(tutorId: string, isActive: boolean) {
   if (error) return { error: "تعذر تحديث حالة المدرّس" };
 
   revalidatePath("/admin/tutors");
+  return { success: true };
+}
+
+export async function resetAdminPassword(adminUserId: string, newPassword: string) {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  if (newPassword.length < 8) return { error: "كلمة المرور يجب ألا تقل عن 8 أحرف" };
+
+  const service = createServiceClient();
+  const { error } = await service.auth.admin.updateUserById(adminUserId, {
+    password: newPassword,
+  });
+
+  if (error) return { error: "تعذر تغيير كلمة المرور" };
   return { success: true };
 }
 

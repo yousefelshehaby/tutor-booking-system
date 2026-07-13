@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { markBookingPaid, cancelBooking } from "@/app/admin/(protected)/bookings/actions";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
+import { StudentNotes } from "@/components/admin/StudentNotes";
 import type { Grade } from "@/types/booking";
 
 export interface AdminBooking {
@@ -48,6 +49,8 @@ export function BookingsTable({
   pageSize,
   currentPage,
   filters,
+  tutorId,
+  readOnly = false,
 }: {
   bookings: AdminBooking[];
   grades: Grade[];
@@ -56,9 +59,12 @@ export function BookingsTable({
   pageSize: number;
   currentPage: number;
   filters: Filters;
+  tutorId: string;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState(filters.q);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   function updateParams(next: Partial<Filters & { page: string }>) {
@@ -175,47 +181,66 @@ export function BookingsTable({
           </thead>
           <tbody>
             {bookings.map((booking) => {
+              const isExpanded = expandedId === booking.id;
               return (
-                <tr key={booking.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-3 font-mono text-xs">{booking.booking_code}</td>
-                  <td className="px-4 py-3">
-                    <div>{booking.student_name}</div>
-                    <div className="text-xs text-zinc-500" dir="ltr">
-                      {booking.student_phone}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div>{booking.grade_name}</div>
-                    <div className="text-xs text-zinc-500">{booking.group_name}</div>
-                  </td>
-                  <td className="px-4 py-3">{PAYMENT_METHOD_LABELS[booking.payment_method]}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_CLASSNAMES[booking.payment_status]}`}
-                    >
-                      {PAYMENT_STATUS_LABELS[booking.payment_status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{booking.amount}</td>
-                  <td className="px-4 py-3">
-                    {(booking.payment_status === "pending" || booking.payment_status === "expired") && (
-                      <div className="flex gap-3">
+                <Fragment key={booking.id}>
+                  <tr className="border-t border-zinc-100">
+                    <td className="px-4 py-3 font-mono text-xs">{booking.booking_code}</td>
+                    <td className="px-4 py-3">
+                      <div>{booking.student_name}</div>
+                      <div className="text-xs text-zinc-500" dir="ltr">
+                        {booking.student_phone}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{booking.grade_name}</div>
+                      <div className="text-xs text-zinc-500">{booking.group_name}</div>
+                    </td>
+                    <td className="px-4 py-3">{PAYMENT_METHOD_LABELS[booking.payment_method]}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_CLASSNAMES[booking.payment_status]}`}
+                      >
+                        {PAYMENT_STATUS_LABELS[booking.payment_status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{booking.amount}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-3">
+                        {!readOnly &&
+                          (booking.payment_status === "pending" || booking.payment_status === "expired") && (
+                            <>
+                              <button
+                                onClick={() => handleMarkPaid(booking.id)}
+                                className="font-medium text-green-700 hover:underline"
+                              >
+                                تحديد كمدفوع
+                              </button>
+                              <button
+                                onClick={() => handleCancel(booking.id)}
+                                className="font-medium text-red-600 hover:underline"
+                              >
+                                إلغاء
+                              </button>
+                            </>
+                          )}
                         <button
-                          onClick={() => handleMarkPaid(booking.id)}
-                          className="font-medium text-green-700 hover:underline"
+                          onClick={() => setExpandedId(isExpanded ? null : booking.id)}
+                          className="font-medium text-blue-600 hover:underline"
                         >
-                          تحديد كمدفوع
-                        </button>
-                        <button
-                          onClick={() => handleCancel(booking.id)}
-                          className="font-medium text-red-600 hover:underline"
-                        >
-                          إلغاء
+                          {isExpanded ? "إخفاء الملاحظات" : "الملاحظات"}
                         </button>
                       </div>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr className="border-t border-zinc-100">
+                      <td colSpan={7} className="px-4 py-3">
+                        <StudentNotes tutorId={tutorId} bookingId={booking.id} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
             {bookings.length === 0 && (

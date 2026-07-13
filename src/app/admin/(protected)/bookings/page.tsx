@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
+import { getCurrentAdmin } from "@/lib/auth/current-admin";
 import { BookingsTable, type AdminBooking } from "@/components/admin/BookingsTable";
 
 const PAGE_SIZE = 20;
@@ -34,6 +35,7 @@ export default async function AdminBookingsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
+  const { tutorId, isTa } = await getCurrentAdmin();
   const supabase = await createAdminServerClient();
   await supabase.rpc("expire_stale_reservations");
 
@@ -103,6 +105,8 @@ export default async function AdminBookingsPage({
           status: params.status ?? "",
           q: params.q ?? "",
         }}
+        tutorId={tutorId ?? ""}
+        readOnly={isTa}
       />
     </div>
   );
