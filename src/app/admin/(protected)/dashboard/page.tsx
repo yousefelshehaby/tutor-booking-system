@@ -12,6 +12,7 @@ interface BookingRow {
 
 export default async function AdminDashboardPage() {
   const supabase = await createAdminServerClient();
+  await supabase.rpc("expire_stale_reservations");
 
   const [{ count: paidCount }, { count: pendingCount }, { data: paidAmounts }, { data: activeBookings }] =
     await Promise.all([

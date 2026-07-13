@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { markBookingPaid, cancelBooking } from "@/app/admin/(protected)/bookings/actions";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 import type { Grade } from "@/types/booking";
 
 export interface AdminBooking {
@@ -32,18 +33,11 @@ interface Filters {
   q: string;
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  card: "بطاقة بنكية",
-  wallet: "محفظة إلكترونية",
-  fawry: "فوري",
-  reserve_only: "حجز بدون دفع",
-};
-
-const PAYMENT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  pending: { label: "في انتظار الدفع", className: "bg-yellow-100 text-yellow-800" },
-  paid: { label: "تم الدفع", className: "bg-green-100 text-green-800" },
-  expired: { label: "انتهى", className: "bg-red-100 text-red-800" },
-  cancelled: { label: "ملغي", className: "bg-zinc-200 text-zinc-700" },
+const STATUS_CLASSNAMES: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  paid: "bg-green-100 text-green-800",
+  expired: "bg-red-100 text-red-800",
+  cancelled: "bg-zinc-200 text-zinc-700",
 };
 
 export function BookingsTable({
@@ -181,7 +175,6 @@ export function BookingsTable({
           </thead>
           <tbody>
             {bookings.map((booking) => {
-              const statusInfo = PAYMENT_STATUS_LABELS[booking.payment_status];
               return (
                 <tr key={booking.id} className="border-t border-zinc-100">
                   <td className="px-4 py-3 font-mono text-xs">{booking.booking_code}</td>
@@ -197,8 +190,10 @@ export function BookingsTable({
                   </td>
                   <td className="px-4 py-3">{PAYMENT_METHOD_LABELS[booking.payment_method]}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusInfo.className}`}>
-                      {statusInfo.label}
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_CLASSNAMES[booking.payment_status]}`}
+                    >
+                      {PAYMENT_STATUS_LABELS[booking.payment_status]}
                     </span>
                   </td>
                   <td className="px-4 py-3">{booking.amount}</td>

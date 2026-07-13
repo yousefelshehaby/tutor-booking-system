@@ -1,19 +1,13 @@
 import Link from "next/link";
 import { getBookingByCode } from "@/lib/booking/get-booking";
 import { RetryPaymentButton } from "@/components/booking/RetryPaymentButton";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  card: "بطاقة بنكية",
-  wallet: "محفظة إلكترونية",
-  fawry: "فوري",
-  reserve_only: "حجز بدون دفع الآن",
-};
-
-const PAYMENT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  pending: { label: "في انتظار الدفع", className: "bg-yellow-100 text-yellow-800" },
-  paid: { label: "تم الدفع", className: "bg-green-100 text-green-800" },
-  expired: { label: "انتهى الحجز", className: "bg-red-100 text-red-800" },
-  cancelled: { label: "ملغي", className: "bg-zinc-200 text-zinc-700" },
+const STATUS_CLASSNAMES: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  paid: "bg-green-100 text-green-800",
+  expired: "bg-red-100 text-red-800",
+  cancelled: "bg-zinc-200 text-zinc-700",
 };
 
 export default async function BookingDetailsPage({
@@ -36,15 +30,15 @@ export default async function BookingDetailsPage({
     );
   }
 
-  const statusInfo = PAYMENT_STATUS_LABELS[booking.payment_status];
-
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-10" dir="rtl">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-zinc-900">تفاصيل الحجز</h1>
-          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusInfo.className}`}>
-            {statusInfo.label}
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${STATUS_CLASSNAMES[booking.payment_status]}`}
+          >
+            {PAYMENT_STATUS_LABELS[booking.payment_status]}
           </span>
         </div>
 

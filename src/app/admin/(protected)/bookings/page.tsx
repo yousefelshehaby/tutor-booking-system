@@ -34,6 +34,7 @@ export default async function AdminBookingsPage({
   const to = from + PAGE_SIZE - 1;
 
   const supabase = await createAdminServerClient();
+  await supabase.rpc("expire_stale_reservations");
 
   let query = supabase
     .from("bookings")
@@ -79,7 +80,15 @@ export default async function AdminBookingsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>
+        <a
+          href="/api/admin/export"
+          className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+        >
+          تصدير إلى Excel
+        </a>
+      </div>
       <BookingsTable
         bookings={bookings}
         grades={grades ?? []}
