@@ -39,7 +39,7 @@ export function BookingWizard({ tutorId, tutorSlug }: { tutorId: string; tutorSl
 
   const [formData, setFormData] = useState<BookingFormData>({
     studentName: "",
-    studentPhone: "",
+    studentPhone: searchParams.get("phone") ?? "",
     guardianPhone: "",
     gradeId: null,
     groupId: null,

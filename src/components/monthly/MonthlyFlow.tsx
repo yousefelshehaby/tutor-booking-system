@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { findEligibleBookings, getMonthlyStatus, payMonth } from "@/app/[tutorSlug]/monthly/actions";
@@ -16,21 +16,38 @@ const PAYMENT_OPTIONS: { value: Exclude<PaymentMethod, "reserve_only">; label: s
   { value: "fawry", label: "فوري", icon: "🏪" },
 ];
 
-export function MonthlyFlow({ tutorId, tutorSlug }: { tutorId: string; tutorSlug: string }) {
+interface Props {
+  tutorId: string;
+  tutorSlug: string;
+  /** When provided (e.g. the caller already looked up by phone), skip the lookup step entirely. */
+  initialBookings?: EligibleBooking[];
+}
+
+export function MonthlyFlow({ tutorId, tutorSlug, initialBookings }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("lookup");
+  const [step, setStep] = useState<Step>(
+    initialBookings && initialBookings.length > 0 ? "select" : "lookup"
+  );
   const [lookupMode, setLookupMode] = useState<"code" | "phone">("code");
   const [lookupValue, setLookupValue] = useState("");
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
 
-  const [candidates, setCandidates] = useState<EligibleBooking[]>([]);
+  const [candidates, setCandidates] = useState<EligibleBooking[]>(initialBookings ?? []);
   const [selectedBooking, setSelectedBooking] = useState<EligibleBooking | null>(null);
 
   const [months, setMonths] = useState<MonthlyPaymentStatus[] | null>(null);
   const [payingMonth, setPayingMonth] = useState<string | null>(null);
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialBookings && initialBookings.length === 1) {
+      selectBooking(initialBookings[0]);
+    }
+    // Only run once on mount for the pre-resolved single-booking case.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleLookupSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,7 +111,6 @@ export function MonthlyFlow({ tutorId, tutorSlug }: { tutorId: string; tutorSlug
     }
 
     if (result.type === "redirect") {
-      // eslint-disable-next-line react-hooks/immutability -- full-page redirect to an external Paymob URL, not component state
       window.location.href = result.url;
       return;
     }
