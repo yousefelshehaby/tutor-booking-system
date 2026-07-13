@@ -34,7 +34,8 @@ export async function getGroupsForGrade(gradeId: string): Promise<GroupWithAvail
 }
 
 export type SubmitBookingResult =
-  | { success: true; bookingCode: string; nextAction: "payment"; paymentUrl: string }
+  | { success: true; bookingCode: string; nextAction: "redirect"; paymentUrl: string }
+  | { success: true; bookingCode: string; nextAction: "fawry_reference"; billReference: string }
   | { success: true; bookingCode: string; nextAction: "success_page" }
   | { success: false; error: string };
 
@@ -77,6 +78,33 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
     return { success: true, bookingCode: data.booking_code, nextAction: "success_page" };
   }
 
-  const { paymentUrl } = await initiatePayment(data.booking_code);
-  return { success: true, bookingCode: data.booking_code, nextAction: "payment", paymentUrl };
+  try {
+    const result = await initiatePayment({
+      bookingCode: data.booking_code,
+      amount: data.amount,
+      paymentMethod,
+      studentName,
+      studentPhone,
+    });
+
+    if (result.type === "redirect") {
+      return {
+        success: true,
+        bookingCode: data.booking_code,
+        nextAction: "redirect",
+        paymentUrl: result.url,
+      };
+    }
+
+    return {
+      success: true,
+      bookingCode: data.booking_code,
+      nextAction: "fawry_reference",
+      billReference: result.billReference,
+    };
+  } catch {
+    // Booking already exists as "pending" — send the student to the booking
+    // page where they can retry payment instead of losing their seat.
+    return { success: true, bookingCode: data.booking_code, nextAction: "success_page" };
+  }
 }

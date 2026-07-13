@@ -82,8 +82,12 @@ export function BookingWizard() {
 
     setFormData((prev) => ({ ...prev, paymentMethod }));
 
-    if (result.nextAction === "payment") {
-      router.push(result.paymentUrl);
+    if (result.nextAction === "redirect") {
+      window.location.href = result.paymentUrl;
+    } else if (result.nextAction === "fawry_reference") {
+      router.push(
+        `/payment/fawry?code=${encodeURIComponent(result.bookingCode)}&ref=${encodeURIComponent(result.billReference)}`
+      );
     } else {
       router.push(`/booking/${result.bookingCode}`);
     }

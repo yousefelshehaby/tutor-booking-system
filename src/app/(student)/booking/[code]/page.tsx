@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getBookingByCode } from "@/lib/booking/get-booking";
+import { RetryPaymentButton } from "@/components/booking/RetryPaymentButton";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: "بطاقة بنكية",
@@ -74,11 +75,9 @@ export default async function BookingDetailsPage({
         )}
 
         {booking.payment_method !== "reserve_only" && booking.payment_status === "pending" && (
-          <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              سيتم تفعيل الدفع الإلكتروني قريبًا. تم تسجيل حجزك بحالة &quot;في انتظار
-              الدفع&quot;.
-            </p>
+          <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+            <p className="text-sm text-blue-800">لم يتم إتمام الدفع بعد لهذا الحجز.</p>
+            <RetryPaymentButton bookingCode={booking.booking_code} />
           </div>
         )}
       </div>

@@ -1,17 +1,57 @@
 import "server-only";
+import { createServiceClient } from "@/lib/supabase/service";
+import {
+  authenticate,
+  buildIframeUrl,
+  createOrder,
+  generatePaymentKey,
+  integrationIdFor,
+  payWithFawry,
+  payWithWallet,
+} from "@/lib/paymob/client";
+import type { PaymentMethod } from "@/types/booking";
 
-export interface InitiatePaymentResult {
-  paymentUrl: string;
-}
+export type InitiatePaymentResult =
+  | { type: "redirect"; url: string }
+  | { type: "fawry_reference"; billReference: string };
 
-/**
- * Placeholder for the real Paymob flow (auth token -> order registration ->
- * payment key -> hosted checkout URL), implemented in Phase 3. For now it
- * just points back to the booking's own success page so the flow is fully
- * clickable end to end before Paymob is wired in.
- */
-export async function initiatePayment(bookingCode: string): Promise<InitiatePaymentResult> {
-  return {
-    paymentUrl: `/booking/${bookingCode}`,
-  };
+export async function initiatePayment(params: {
+  bookingCode: string;
+  amount: number;
+  paymentMethod: Exclude<PaymentMethod, "reserve_only">;
+  studentName: string;
+  studentPhone: string;
+}): Promise<InitiatePaymentResult> {
+  const { bookingCode, amount, paymentMethod, studentName, studentPhone } = params;
+  const amountCents = Math.round(amount * 100);
+
+  const authToken = await authenticate();
+  const orderId = await createOrder({ authToken, amountCents, merchantOrderId: bookingCode });
+
+  const supabase = createServiceClient();
+  await supabase
+    .from("bookings")
+    .update({ paymob_order_id: String(orderId) })
+    .eq("booking_code", bookingCode);
+
+  const integrationId = integrationIdFor(paymentMethod);
+  const paymentToken = await generatePaymentKey({
+    authToken,
+    amountCents,
+    orderId,
+    integrationId,
+    billing: { studentName, studentPhone },
+  });
+
+  if (paymentMethod === "card") {
+    return { type: "redirect", url: buildIframeUrl(paymentToken) };
+  }
+
+  if (paymentMethod === "wallet") {
+    const { redirectUrl } = await payWithWallet({ paymentToken, walletPhone: studentPhone });
+    return { type: "redirect", url: redirectUrl };
+  }
+
+  const { billReference } = await payWithFawry({ paymentToken });
+  return { type: "fawry_reference", billReference };
 }
