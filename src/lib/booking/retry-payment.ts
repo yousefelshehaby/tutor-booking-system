@@ -39,13 +39,18 @@ export async function retryPayment(bookingCode: string): Promise<RetryPaymentRes
 
   try {
     const result = await initiatePayment({
-      bookingCode: booking.booking_code,
+      merchantOrderId: booking.booking_code,
       amount: Number(booking.amount),
       paymentMethod: booking.payment_method as Exclude<PaymentMethod, "reserve_only">,
       studentName: booking.student_name,
       studentPhone: booking.student_phone,
       credentials,
     });
+
+    await supabase
+      .from("bookings")
+      .update({ paymob_order_id: result.paymobOrderId })
+      .eq("booking_code", booking.booking_code);
 
     if (result.type === "redirect") {
       return { type: "redirect", url: result.url };

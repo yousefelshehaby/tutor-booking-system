@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { resolveTutorOrNotFound } from "@/lib/tutor/resolve-tutor";
+import { createAnonServerClient } from "@/lib/supabase/server";
+import type { Settings } from "@/types/monthly";
 
 export default async function LandingPage({
   params,
@@ -8,6 +10,16 @@ export default async function LandingPage({
 }) {
   const { tutorSlug } = await params;
   const tutor = await resolveTutorOrNotFound(tutorSlug);
+
+  const supabase = createAnonServerClient();
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("tutor_id, booking_open, monthly_payment_open, current_month")
+    .eq("tutor_id", tutor.id)
+    .maybeSingle<Settings>();
+
+  const bookingOpen = settings?.booking_open ?? true;
+  const monthlyPaymentOpen = settings?.monthly_payment_open ?? true;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
@@ -19,12 +31,29 @@ export default async function LandingPage({
           اختر الصف الدراسي والمجموعة المناسبة لك، وادفع أونلاين بسهولة وأمان.
         </p>
 
-        <Link
-          href={`/${tutor.slug}/book`}
-          className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-        >
-          احجز الآن
-        </Link>
+        <div className="mt-8 flex flex-col gap-3">
+          {bookingOpen && (
+            <Link
+              href={`/${tutor.slug}/book`}
+              className="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+            >
+              احجز الآن
+            </Link>
+          )}
+
+          {monthlyPaymentOpen && (
+            <Link
+              href={`/${tutor.slug}/monthly`}
+              className="inline-flex w-full items-center justify-center rounded-xl border-2 border-blue-600 bg-white px-6 py-4 text-lg font-semibold text-blue-700 shadow-sm transition-colors hover:bg-blue-50"
+            >
+              ادفع اشتراك الشهر
+            </Link>
+          )}
+
+          {!bookingOpen && !monthlyPaymentOpen && (
+            <p className="text-zinc-500">الحجز والدفع الشهري غير متاحين حاليًا</p>
+          )}
+        </div>
       </div>
     </main>
   );

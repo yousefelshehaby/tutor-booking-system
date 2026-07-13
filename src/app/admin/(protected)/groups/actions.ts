@@ -12,6 +12,11 @@ const groupSchema = z.object({
   time: z.string().trim().min(1, "الموعد مطلوب"),
   capacity: z.coerce.number().int().positive("السعة يجب أن تكون رقمًا موجبًا"),
   price: z.coerce.number().nonnegative("السعر يجب أن يكون رقمًا صحيحًا"),
+  monthly_fee: z.coerce
+    .number()
+    .nonnegative("الاشتراك الشهري يجب أن يكون رقمًا صحيحًا")
+    .nullable()
+    .optional(),
 });
 
 export async function createGroup(input: unknown) {

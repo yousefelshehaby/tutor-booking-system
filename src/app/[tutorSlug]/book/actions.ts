@@ -1,6 +1,7 @@
 "use server";
 
 import { createAnonServerClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { initiatePayment } from "@/lib/paymob/initiate-payment";
 import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
 import { bookingSubmitSchema } from "@/lib/validation/booking";
@@ -99,13 +100,19 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
     }
 
     const result = await initiatePayment({
-      bookingCode: data.booking_code,
+      merchantOrderId: data.booking_code,
       amount: data.amount,
       paymentMethod,
       studentName,
       studentPhone,
       credentials,
     });
+
+    const serviceSupabase = createServiceClient();
+    await serviceSupabase
+      .from("bookings")
+      .update({ paymob_order_id: result.paymobOrderId })
+      .eq("booking_code", data.booking_code);
 
     if (result.type === "redirect") {
       return {

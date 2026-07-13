@@ -1,4 +1,6 @@
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
+import { getCurrentAdmin } from "@/lib/auth/current-admin";
+import { formatMonth } from "@/lib/utils/format-month";
 
 interface GroupJoin {
   name: string | null;
@@ -13,22 +15,47 @@ interface BookingRow {
 export default async function AdminDashboardPage() {
   const supabase = await createAdminServerClient();
   await supabase.rpc("expire_stale_reservations");
+  const { tutorId } = await getCurrentAdmin();
 
-  const [{ count: paidCount }, { count: pendingCount }, { data: paidAmounts }, { data: activeBookings }] =
-    await Promise.all([
-      supabase.from("bookings").select("*", { count: "exact", head: true }).eq("payment_status", "paid"),
-      supabase
-        .from("bookings")
-        .select("*", { count: "exact", head: true })
-        .eq("payment_status", "pending"),
-      supabase.from("bookings").select("amount").eq("payment_status", "paid"),
-      supabase
-        .from("bookings")
-        .select("group_id, payment_status, groups(name)")
-        .in("payment_status", ["paid", "pending"]),
-    ]);
+  const [
+    { count: paidCount },
+    { count: pendingCount },
+    { data: paidAmounts },
+    { data: activeBookings },
+    { data: settings },
+  ] = await Promise.all([
+    supabase.from("bookings").select("*", { count: "exact", head: true }).eq("payment_status", "paid"),
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("payment_status", "pending"),
+    supabase.from("bookings").select("amount").eq("payment_status", "paid"),
+    supabase
+      .from("bookings")
+      .select("group_id, payment_status, groups(name)")
+      .in("payment_status", ["paid", "pending"]),
+    tutorId
+      ? supabase.from("settings").select("current_month").eq("tutor_id", tutorId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const totalRevenue = (paidAmounts ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+
+  const currentMonth = settings?.current_month ?? null;
+  let monthlyCollected = 0;
+  let monthlyPaidCount = 0;
+  if (currentMonth) {
+    const { data: monthlyRows } = await supabase
+      .from("monthly_payments")
+      .select("amount, payment_status")
+      .eq("month", currentMonth);
+    for (const row of monthlyRows ?? []) {
+      if (row.payment_status === "paid") {
+        monthlyCollected += Number(row.amount);
+        monthlyPaidCount += 1;
+      }
+    }
+  }
 
   const perGroup = new Map<string, { name: string; count: number }>();
   for (const row of (activeBookings ?? []) as BookingRow[]) {
@@ -48,6 +75,24 @@ export default async function AdminDashboardPage() {
         <StatCard label="إجمالي الإيرادات" value={`${totalRevenue.toLocaleString("ar-EG")} جنيه`} />
         <StatCard label="حجوزات في انتظار الدفع" value={String(pendingCount ?? 0)} />
       </div>
+
+      {currentMonth && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900">
+            تحصيل شهر {formatMonth(currentMonth)}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard
+              label="المبلغ المحصّل هذا الشهر"
+              value={`${monthlyCollected.toLocaleString("ar-EG")} جنيه`}
+            />
+            <StatCard
+              label="عدد الطلاب الذين دفعوا"
+              value={`${monthlyPaidCount} من ${paidCount ?? 0}`}
+            />
+          </div>
+        </div>
+      )}
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-zinc-900">عدد الحجوزات لكل مجموعة</h2>

@@ -38,29 +38,26 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // Resolve which tutor this transaction belongs to (currently only
-  // bookings; monthly_payments will be added the same way) so we can verify
-  // the HMAC with THAT tutor's secret, not a global one.
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .select("id, booking_code, tutor_id, payment_status")
-    .eq("booking_code", merchantOrderId)
-    .single();
+  // Resolve which record and tutor this transaction belongs to, so we can
+  // verify the HMAC with THAT tutor's secret — never a global one.
+  const target = merchantOrderId.startsWith("MP-")
+    ? await resolveMonthlyPayment(supabase, merchantOrderId)
+    : await resolveBooking(supabase, merchantOrderId);
 
-  if (bookingError || !booking) {
-    console.error("Paymob webhook: no booking matches merchant_order_id", { merchantOrderId });
+  if (!target) {
+    console.error("Paymob webhook: no record matches merchant_order_id", { merchantOrderId });
     return NextResponse.json({ received: true });
   }
 
   const { data: tutor, error: tutorError } = await supabase
     .from("tutors")
     .select("paymob_hmac_secret")
-    .eq("id", booking.tutor_id)
+    .eq("id", target.tutorId)
     .single();
 
   if (tutorError || !tutor?.paymob_hmac_secret) {
     console.error("Paymob webhook: tutor has no HMAC secret configured", {
-      tutorId: booking.tutor_id,
+      tutorId: target.tutorId,
     });
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
@@ -77,17 +74,17 @@ export async function POST(request: NextRequest) {
 
   if (transaction.success === true) {
     const { error } = await supabase
-      .from("bookings")
+      .from(target.table)
       .update({
         payment_status: "paid",
         paid_at: new Date().toISOString(),
         paymob_order_id: paymobOrderId ? String(paymobOrderId) : undefined,
       })
-      .eq("id", booking.id)
+      .eq("id", target.id)
       .eq("payment_status", "pending");
 
     if (error) {
-      console.error("Failed to mark booking paid from webhook", error, { merchantOrderId });
+      console.error("Failed to mark payment paid from webhook", error, { merchantOrderId });
       return NextResponse.json({ error: "Database update failed" }, { status: 500 });
     }
   } else {
@@ -98,4 +95,39 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+interface PaymentTarget {
+  table: "bookings" | "monthly_payments";
+  id: string;
+  tutorId: string;
+}
+
+async function resolveBooking(
+  supabase: ReturnType<typeof createServiceClient>,
+  merchantOrderId: string
+): Promise<PaymentTarget | null> {
+  const { data } = await supabase
+    .from("bookings")
+    .select("id, tutor_id")
+    .eq("booking_code", merchantOrderId)
+    .single();
+
+  if (!data) return null;
+  return { table: "bookings", id: data.id, tutorId: data.tutor_id };
+}
+
+async function resolveMonthlyPayment(
+  supabase: ReturnType<typeof createServiceClient>,
+  merchantOrderId: string
+): Promise<PaymentTarget | null> {
+  const monthlyPaymentId = merchantOrderId.slice("MP-".length);
+  const { data } = await supabase
+    .from("monthly_payments")
+    .select("id, tutor_id")
+    .eq("id", monthlyPaymentId)
+    .single();
+
+  if (!data) return null;
+  return { table: "monthly_payments", id: data.id, tutorId: data.tutor_id };
 }

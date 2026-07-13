@@ -19,6 +19,7 @@ export interface AdminGroup {
   time: string;
   capacity: number;
   price: number;
+  monthly_fee: number | null;
   is_active: boolean;
   grade_name: string;
 }
@@ -30,9 +31,18 @@ interface FormState {
   time: string;
   capacity: string;
   price: string;
+  monthly_fee: string;
 }
 
-const EMPTY_FORM: FormState = { grade_id: "", name: "", days: "", time: "", capacity: "", price: "" };
+const EMPTY_FORM: FormState = {
+  grade_id: "",
+  name: "",
+  days: "",
+  time: "",
+  capacity: "",
+  price: "",
+  monthly_fee: "",
+};
 
 export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades: Grade[] }) {
   const router = useRouter();
@@ -47,7 +57,10 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
     setSubmitting(true);
     setError(null);
 
-    const result = await createGroup(form);
+    const result = await createGroup({
+      ...form,
+      monthly_fee: form.monthly_fee.trim() === "" ? null : form.monthly_fee,
+    });
 
     setSubmitting(false);
     if (result.error) {
@@ -68,11 +81,15 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
       time: group.time,
       capacity: String(group.capacity),
       price: String(group.price),
+      monthly_fee: group.monthly_fee === null ? "" : String(group.monthly_fee),
     });
   }
 
   async function handleUpdate(id: string) {
-    const result = await updateGroup(id, editForm);
+    const result = await updateGroup(id, {
+      ...editForm,
+      monthly_fee: editForm.monthly_fee.trim() === "" ? null : editForm.monthly_fee,
+    });
     if (!result.error) {
       setEditingId(null);
       router.refresh();
@@ -159,6 +176,15 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
         </Field>
+        <Field label="الاشتراك الشهري (اختياري)">
+          <input
+            type="number"
+            placeholder="مثل السعر إن ترك فارغًا"
+            value={form.monthly_fee}
+            onChange={(e) => setForm({ ...form, monthly_fee: e.target.value })}
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </Field>
         <div className="sm:col-span-2 lg:col-span-6">
           <Button type="submit" disabled={submitting}>
             إضافة مجموعة
@@ -178,6 +204,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
               <th className="px-4 py-3 font-medium">الموعد</th>
               <th className="px-4 py-3 font-medium">السعة</th>
               <th className="px-4 py-3 font-medium">السعر</th>
+              <th className="px-4 py-3 font-medium">الاشتراك الشهري</th>
               <th className="px-4 py-3 font-medium">الحالة</th>
               <th className="px-4 py-3 font-medium">إجراءات</th>
             </tr>
@@ -236,6 +263,14 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
                       className="w-20 rounded-lg border border-zinc-300 px-2 py-1"
                     />
                   </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      value={editForm.monthly_fee}
+                      onChange={(e) => setEditForm({ ...editForm, monthly_fee: e.target.value })}
+                      className="w-20 rounded-lg border border-zinc-300 px-2 py-1"
+                    />
+                  </td>
                   <td className="px-4 py-3 text-zinc-400">—</td>
                   <td className="flex gap-2 px-4 py-3">
                     <button
@@ -260,6 +295,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
                   <td className="px-4 py-3">{group.time}</td>
                   <td className="px-4 py-3">{group.capacity}</td>
                   <td className="px-4 py-3">{group.price}</td>
+                  <td className="px-4 py-3">{group.monthly_fee ?? "—"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -294,7 +330,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
             )}
             {groups.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={9} className="px-4 py-6 text-center text-zinc-500">
                   لا توجد مجموعات بعد
                 </td>
               </tr>

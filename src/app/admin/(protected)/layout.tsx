@@ -6,6 +6,8 @@ const NAV_LINKS = [
   { href: "/admin/grades", label: "الصفوف الدراسية" },
   { href: "/admin/groups", label: "المجموعات" },
   { href: "/admin/bookings", label: "الحجوزات" },
+  { href: "/admin/monthly-payments", label: "المدفوعات الشهرية" },
+  { href: "/admin/settings", label: "الإعدادات" },
 ];
 
 export default function AdminProtectedLayout({ children }: { children: React.ReactNode }) {

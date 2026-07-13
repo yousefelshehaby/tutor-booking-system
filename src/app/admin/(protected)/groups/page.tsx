@@ -9,6 +9,7 @@ interface GroupRow {
   time: string;
   capacity: number;
   price: number;
+  monthly_fee: number | null;
   is_active: boolean;
   grades: { name: string } | { name: string }[] | null;
 }
@@ -19,7 +20,9 @@ export default async function AdminGroupsPage() {
   const [{ data: groupRows }, { data: grades }] = await Promise.all([
     supabase
       .from("groups")
-      .select("id, grade_id, name, days, time, capacity, price, is_active, grades(name)")
+      .select(
+        "id, grade_id, name, days, time, capacity, price, monthly_fee, is_active, grades(name)"
+      )
       .order("created_at", { ascending: true }),
     supabase.from("grades").select("id, name, display_order, is_active").order("display_order"),
   ]);
@@ -34,6 +37,7 @@ export default async function AdminGroupsPage() {
       time: row.time,
       capacity: row.capacity,
       price: row.price,
+      monthly_fee: row.monthly_fee,
       is_active: row.is_active,
       grade_name: gradeInfo?.name ?? "غير معروف",
     };
