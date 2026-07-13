@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -104,6 +105,172 @@ export async function resetAdminPassword(
 
   if (error) return { error: "تعذر تغيير كلمة المرور" };
   return { success: true };
+}
+
+function generateStrongPassword(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+export async function generateTutorPassword(
+  tutorId: string
+): Promise<{ error: string } | { success: true; password: string }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const service = createServiceClient();
+  const { data: adminUser, error: findError } = await service
+    .from("admin_users")
+    .select("id")
+    .eq("tutor_id", tutorId)
+    .eq("role", "tutor")
+    .single();
+
+  if (findError || !adminUser) {
+    return { error: "تعذر العثور على حساب دخول هذا المدرّس" };
+  }
+
+  const password = generateStrongPassword();
+  const { error } = await service.auth.admin.updateUserById(adminUser.id, { password });
+
+  if (error) return { error: "تعذر تغيير كلمة المرور" };
+  return { success: true, password };
+}
+
+const updateProfileSchema = z.object({
+  name: z.string().trim().min(1, "اسم المدرّس مطلوب"),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]+$/, "الرابط يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطات فقط"),
+  phone: z.string().trim().optional(),
+  bankName: z.string().trim().optional(),
+  bankAccountHolder: z.string().trim().optional(),
+  bankAccountNumber: z.string().trim().optional(),
+});
+
+export async function updateTutorProfile(
+  tutorId: string,
+  input: unknown
+): Promise<{ error: string } | { success: true }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const parsed = updateProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
+  }
+
+  const { name, slug, phone, bankName, bankAccountHolder, bankAccountNumber } = parsed.data;
+  const service = createServiceClient();
+
+  const { error } = await service
+    .from("tutors")
+    .update({
+      name,
+      slug,
+      phone: phone || null,
+      bank_name: bankName || null,
+      bank_account_holder: bankAccountHolder || null,
+      bank_account_number: bankAccountNumber || null,
+    })
+    .eq("id", tutorId);
+
+  if (error) {
+    return { error: error.code === "23505" ? "هذا الرابط مستخدم بالفعل" : "تعذر حفظ البيانات" };
+  }
+
+  revalidatePath(`/admin/tutors/${tutorId}`);
+  revalidatePath("/admin/tutors");
+  return { success: true };
+}
+
+export async function updateTutorEmail(
+  tutorId: string,
+  newEmail: string
+): Promise<{ error: string } | { success: true }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const parsedEmail = z.email("البريد الإلكتروني غير صحيح").safeParse(newEmail);
+  if (!parsedEmail.success) return { error: parsedEmail.error.issues[0]?.message ?? "بريد غير صحيح" };
+
+  const service = createServiceClient();
+  const { data: adminUser, error: findError } = await service
+    .from("admin_users")
+    .select("id")
+    .eq("tutor_id", tutorId)
+    .eq("role", "tutor")
+    .single();
+
+  if (findError || !adminUser) {
+    return { error: "تعذر العثور على حساب دخول هذا المدرّس" };
+  }
+
+  const { error: authError } = await service.auth.admin.updateUserById(adminUser.id, {
+    email: parsedEmail.data,
+    email_confirm: true,
+  });
+
+  if (authError) {
+    return { error: "تعذر تغيير البريد الإلكتروني (قد يكون مستخدمًا بالفعل)" };
+  }
+
+  await service.from("admin_users").update({ email: parsedEmail.data }).eq("id", adminUser.id);
+
+  revalidatePath(`/admin/tutors/${tutorId}`);
+  return { success: true };
+}
+
+export async function uploadTutorPhoto(
+  tutorId: string,
+  formData: FormData
+): Promise<{ error: string } | { success: true; photoUrl: string }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "من فضلك اختر صورة" };
+  }
+
+  if (!file.type.startsWith("image/")) {
+    return { error: "الملف المختار ليس صورة" };
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    return { error: "حجم الصورة يجب ألا يزيد عن 5 ميجابايت" };
+  }
+
+  const service = createServiceClient();
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${tutorId}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await service.storage
+    .from("tutor-photos")
+    .upload(path, file, { contentType: file.type, upsert: true });
+
+  if (uploadError) {
+    return { error: "تعذر رفع الصورة" };
+  }
+
+  const {
+    data: { publicUrl },
+  } = service.storage.from("tutor-photos").getPublicUrl(path);
+
+  const { error: updateError } = await service
+    .from("tutors")
+    .update({ photo_url: publicUrl })
+    .eq("id", tutorId);
+
+  if (updateError) {
+    return { error: "تعذر حفظ رابط الصورة" };
+  }
+
+  revalidatePath(`/admin/tutors/${tutorId}`);
+  revalidatePath("/admin/tutors");
+  revalidatePath("/");
+  return { success: true, photoUrl: publicUrl };
 }
 
 export async function switchActiveTutor(tutorId: string) {

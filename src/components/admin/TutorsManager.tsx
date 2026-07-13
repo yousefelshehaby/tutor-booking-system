@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { createTutor, toggleTutorActive, switchActiveTutor } from "@/app/admin/(protected)/tutors/actions";
 
@@ -128,7 +129,9 @@ export function TutorsManager({
             {tutors.map((tutor) => (
               <tr key={tutor.id} className="border-t border-zinc-100">
                 <td className="px-4 py-3">
-                  {tutor.name}
+                  <Link href={`/admin/tutors/${tutor.id}`} className="font-medium text-zinc-900 hover:underline">
+                    {tutor.name}
+                  </Link>
                   {tutor.id === activeTutorId && (
                     <span className="mr-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                       تديره الآن

@@ -6,6 +6,7 @@ export interface PublicTutor {
   id: string;
   name: string;
   slug: string;
+  photo_url: string | null;
 }
 
 /**

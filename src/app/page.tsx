@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createAnonServerClient } from "@/lib/supabase/server";
 import { AdminFooterLink } from "@/components/tutor/AdminFooterLink";
 
@@ -6,6 +7,7 @@ interface TutorListing {
   id: string;
   name: string;
   slug: string;
+  photo_url: string | null;
 }
 
 export default async function RootPage() {
@@ -25,8 +27,22 @@ export default async function RootPage() {
               <Link
                 key={tutor.id}
                 href={`/${tutor.slug}`}
-                className="rounded-xl border-2 border-zinc-200 bg-white px-6 py-4 text-lg font-semibold text-zinc-900 transition-colors hover:border-blue-600 hover:text-blue-700"
+                className="flex items-center gap-3 rounded-xl border-2 border-zinc-200 bg-white px-6 py-4 text-lg font-semibold text-zinc-900 transition-colors hover:border-blue-600 hover:text-blue-700"
               >
+                {tutor.photo_url ? (
+                  <Image
+                    src={tutor.photo_url}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-sm text-zinc-400">
+                    {tutor.name.charAt(0)}
+                  </span>
+                )}
                 {tutor.name}
               </Link>
             ))}

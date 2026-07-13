@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { resolveTutorOrNotFound } from "@/lib/tutor/resolve-tutor";
 import { createAnonServerClient } from "@/lib/supabase/server";
 import { PhoneFirstEntry } from "@/components/tutor/PhoneFirstEntry";
@@ -26,6 +27,16 @@ export default async function LandingPage({
     <div className="flex flex-1 flex-col">
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-md text-center">
+          {tutor.photo_url && (
+            <Image
+              src={tutor.photo_url}
+              alt={tutor.name}
+              width={112}
+              height={112}
+              className="mx-auto mb-4 h-28 w-28 rounded-full object-cover"
+              unoptimized
+            />
+          )}
           <h1 className="text-3xl font-bold text-zinc-900 sm:text-4xl">{tutor.name}</h1>
           <p className="mt-4 text-lg leading-8 text-zinc-600">
             أدخل رقم هاتفك عشان نحدد إذا كنت طالب جديد هتحجز، أو طالب مسجل هتدفع اشتراكك.
