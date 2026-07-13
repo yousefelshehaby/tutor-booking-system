@@ -20,7 +20,7 @@ export default async function TutorProfilePage({
   const { data: tutor } = await supabase
     .from("tutors")
     .select(
-      "id, name, slug, phone, is_active, photo_url, bank_name, bank_account_holder, bank_account_number"
+      "id, name, slug, phone, is_active, photo_url, bank_name, bank_account_holder, bank_account_number, paymob_api_key, paymob_hmac_secret, paymob_card_integration_id, paymob_wallet_integration_id, paymob_fawry_integration_id, paymob_iframe_id"
     )
     .eq("id", tutorId)
     .single();

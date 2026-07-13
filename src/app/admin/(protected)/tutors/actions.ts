@@ -273,6 +273,57 @@ export async function uploadTutorPhoto(
   return { success: true, photoUrl: publicUrl };
 }
 
+const paymobCredentialsSchema = z.object({
+  paymobApiKey: z.string().trim().min(1, "API key مطلوب"),
+  paymobHmacSecret: z.string().trim().min(1, "HMAC secret مطلوب"),
+  paymobCardIntegrationId: z.string().trim().optional(),
+  paymobWalletIntegrationId: z.string().trim().optional(),
+  paymobFawryIntegrationId: z.string().trim().optional(),
+  paymobIframeId: z.string().trim().min(1, "Iframe ID مطلوب — من غيره الدفع بالبطاقة مش هيشتغل"),
+});
+
+export async function updateTutorPaymobCredentials(
+  tutorId: string,
+  input: unknown
+): Promise<{ error: string } | { success: true }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const parsed = paymobCredentialsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
+  }
+
+  const {
+    paymobApiKey,
+    paymobHmacSecret,
+    paymobCardIntegrationId,
+    paymobWalletIntegrationId,
+    paymobFawryIntegrationId,
+    paymobIframeId,
+  } = parsed.data;
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("tutors")
+    .update({
+      paymob_api_key: paymobApiKey,
+      paymob_hmac_secret: paymobHmacSecret,
+      paymob_card_integration_id: paymobCardIntegrationId || null,
+      paymob_wallet_integration_id: paymobWalletIntegrationId || null,
+      paymob_fawry_integration_id: paymobFawryIntegrationId || null,
+      paymob_iframe_id: paymobIframeId,
+    })
+    .eq("id", tutorId);
+
+  if (error) {
+    return { error: "تعذر حفظ بيانات Paymob" };
+  }
+
+  revalidatePath(`/admin/tutors/${tutorId}`);
+  return { success: true };
+}
+
 export async function switchActiveTutor(tutorId: string) {
   const { isSuperAdmin } = await getCurrentAdmin();
   if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };

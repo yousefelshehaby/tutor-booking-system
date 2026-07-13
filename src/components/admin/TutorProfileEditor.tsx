@@ -9,6 +9,7 @@ import {
   updateTutorEmail,
   generateTutorPassword,
   uploadTutorPhoto,
+  updateTutorPaymobCredentials,
 } from "@/app/admin/(protected)/tutors/actions";
 
 export interface TutorProfile {
@@ -21,6 +22,12 @@ export interface TutorProfile {
   bank_name: string | null;
   bank_account_holder: string | null;
   bank_account_number: string | null;
+  paymob_api_key: string | null;
+  paymob_hmac_secret: string | null;
+  paymob_card_integration_id: string | null;
+  paymob_wallet_integration_id: string | null;
+  paymob_fawry_integration_id: string | null;
+  paymob_iframe_id: string | null;
 }
 
 export function TutorProfileEditor({
@@ -38,6 +45,7 @@ export function TutorProfileEditor({
       <PhotoSection tutorId={tutor.id} photoUrl={tutor.photo_url} onUploaded={() => router.refresh()} />
       <EmailSection tutorId={tutor.id} currentEmail={adminEmail} onSaved={() => router.refresh()} />
       <PasswordSection tutorId={tutor.id} />
+      <PaymobSection tutor={tutor} onSaved={() => router.refresh()} />
     </div>
   );
 }
@@ -346,6 +354,132 @@ function PasswordSection({ tutorId }: { tutorId: string }) {
       )}
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </Section>
+  );
+}
+
+function PaymobSection({
+  tutor,
+  onSaved,
+}: {
+  tutor: TutorProfile;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    paymobApiKey: tutor.paymob_api_key ?? "",
+    paymobHmacSecret: tutor.paymob_hmac_secret ?? "",
+    paymobCardIntegrationId: tutor.paymob_card_integration_id ?? "",
+    paymobWalletIntegrationId: tutor.paymob_wallet_integration_id ?? "",
+    paymobFawryIntegrationId: tutor.paymob_fawry_integration_id ?? "",
+    paymobIframeId: tutor.paymob_iframe_id ?? "",
+  });
+  const [reveal, setReveal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccess(false);
+
+    const result = await updateTutorPaymobCredentials(tutor.id, form);
+
+    setSubmitting(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+
+    setSuccess(true);
+    onSaved();
+  }
+
+  const secretType = reveal ? "text" : "password";
+
+  return (
+    <Section title="بيانات الدفع (Paymob)">
+      <p className="mb-4 text-sm text-zinc-600">
+        من لوحة تحكم Paymob بتاعة هذا المدرّس: API Key وHMAC Secret من صفحة API Keys، ومعرّفات
+        التكامل (Integration IDs) من صفحة Payment Integrations، ومعرّف الـ Iframe من صفحة Iframes —
+        من غير Iframe ID الدفع بالبطاقة مش هيشتغل حتى لو باقي البيانات صحيحة.
+      </p>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2 flex items-center justify-between">
+          <span className="text-sm font-medium text-zinc-700">إظهار القيم الحساسة</span>
+          <button
+            type="button"
+            onClick={() => setReveal((v) => !v)}
+            className="text-sm font-medium text-blue-600 hover:underline"
+          >
+            {reveal ? "إخفاء" : "إظهار"}
+          </button>
+        </div>
+
+        <Field label="API Key">
+          <input
+            required
+            dir="ltr"
+            type={secretType}
+            value={form.paymobApiKey}
+            onChange={(e) => setForm({ ...form, paymobApiKey: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="HMAC Secret">
+          <input
+            required
+            dir="ltr"
+            type={secretType}
+            value={form.paymobHmacSecret}
+            onChange={(e) => setForm({ ...form, paymobHmacSecret: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Iframe ID (البطاقة)">
+          <input
+            required
+            dir="ltr"
+            value={form.paymobIframeId}
+            onChange={(e) => setForm({ ...form, paymobIframeId: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Card Integration ID">
+          <input
+            dir="ltr"
+            value={form.paymobCardIntegrationId}
+            onChange={(e) => setForm({ ...form, paymobCardIntegrationId: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Wallet Integration ID">
+          <input
+            dir="ltr"
+            value={form.paymobWalletIntegrationId}
+            onChange={(e) => setForm({ ...form, paymobWalletIntegrationId: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Fawry Integration ID">
+          <input
+            dir="ltr"
+            value={form.paymobFawryIntegrationId}
+            onChange={(e) => setForm({ ...form, paymobFawryIntegrationId: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+
+        <div className="sm:col-span-2 flex items-center gap-3">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "جاري الحفظ..." : "حفظ بيانات Paymob"}
+          </Button>
+          {success && <span className="text-sm text-green-700">تم الحفظ ✓</span>}
+        </div>
+        {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
+      </form>
     </Section>
   );
 }
