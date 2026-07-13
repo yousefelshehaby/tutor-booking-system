@@ -1,6 +1,7 @@
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
 import { formatMonth } from "@/lib/utils/format-month";
+import { DashboardGreeting } from "@/components/admin/DashboardGreeting";
 
 interface GroupJoin {
   name: string | null;
@@ -15,7 +16,7 @@ interface BookingRow {
 export default async function AdminDashboardPage() {
   const supabase = await createAdminServerClient();
   await supabase.rpc("expire_stale_reservations");
-  const { tutorId } = await getCurrentAdmin();
+  const { tutorId, isSuperAdmin } = await getCurrentAdmin();
 
   const [
     { count: paidCount },
@@ -23,6 +24,7 @@ export default async function AdminDashboardPage() {
     { data: paidAmounts },
     { data: activeBookings },
     { data: settings },
+    { data: tutor },
   ] = await Promise.all([
     supabase.from("bookings").select("*", { count: "exact", head: true }).eq("payment_status", "paid"),
     supabase
@@ -37,7 +39,16 @@ export default async function AdminDashboardPage() {
     tutorId
       ? supabase.from("settings").select("current_month").eq("tutor_id", tutorId).maybeSingle()
       : Promise.resolve({ data: null }),
+    tutorId
+      ? supabase.from("tutors").select("name").eq("id", tutorId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const greeting = isSuperAdmin
+    ? "أهلاً بيك باشمهندس يوسف"
+    : tutor?.name
+      ? `أهلاً بيك مستر ${tutor.name}`
+      : null;
 
   const totalRevenue = (paidAmounts ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
 
@@ -68,7 +79,8 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-zinc-900">لوحة القيادة</h1>
+      {greeting && <DashboardGreeting greeting={greeting} subtitle="لوحة القيادة" />}
+      {!greeting && <h1 className="text-2xl font-bold text-zinc-900">لوحة القيادة</h1>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="عدد الطلاب الذين دفعوا" value={String(paidCount ?? 0)} />

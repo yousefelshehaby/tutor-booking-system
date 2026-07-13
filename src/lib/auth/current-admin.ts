@@ -7,6 +7,7 @@ export interface CurrentAdmin {
   id: string | null;
   tutorId: string | null;
   role: AdminRole | null;
+  name: string | null;
   isSuperAdmin: boolean;
   isTa: boolean;
   isActive: boolean;
@@ -16,6 +17,7 @@ const EMPTY_ADMIN: CurrentAdmin = {
   id: null,
   tutorId: null,
   role: null,
+  name: null,
   isSuperAdmin: false,
   isTa: false,
   isActive: false,
@@ -42,7 +44,7 @@ export async function getCurrentAdmin(): Promise<CurrentAdmin> {
 
   const { data } = await supabase
     .from("admin_users")
-    .select("tutor_id, role, is_active")
+    .select("tutor_id, role, is_active, name")
     .eq("id", user.id)
     .single();
 
@@ -56,6 +58,7 @@ export async function getCurrentAdmin(): Promise<CurrentAdmin> {
     id: user.id,
     tutorId: data.tutor_id,
     role,
+    name: data.name,
     isSuperAdmin: role === "super_admin",
     isTa: role === "ta",
     isActive: data.is_active,

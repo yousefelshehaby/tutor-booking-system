@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
 import { BookingsTable, type AdminBooking } from "@/components/admin/BookingsTable";
+import { DashboardGreeting } from "@/components/admin/DashboardGreeting";
 
 const PAGE_SIZE = 20;
 
@@ -53,7 +54,7 @@ export default async function AdminBookingsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const { isTa, isSuperAdmin } = await getCurrentAdmin();
+  const { isTa, isSuperAdmin, name } = await getCurrentAdmin();
   const supabase = await createAdminServerClient();
   await supabase.rpc("expire_stale_reservations");
 
@@ -116,8 +117,9 @@ export default async function AdminBookingsPage({
 
   return (
     <div className="flex flex-col gap-6">
+      {isTa && name && <DashboardGreeting greeting={`أهلاً بيك ${name}`} subtitle="الحجوزات" />}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>
+        {!(isTa && name) && <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>}
         <Link
           href={`/api/admin/export${params.tutor ? `?tutor=${params.tutor}` : ""}`}
           className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"

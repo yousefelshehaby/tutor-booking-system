@@ -7,6 +7,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
 
 const createTaSchema = z.object({
+  name: z.string().trim().min(1, "اسم المساعد مطلوب"),
   email: z.email("البريد الإلكتروني غير صحيح"),
   password: z.string().min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف"),
   tutorIds: z.array(z.uuid()).min(1, "من فضلك اختر مدرّس واحد على الأقل"),
@@ -19,7 +20,7 @@ export async function createTa(input: unknown): Promise<{ error: string } | { su
   const parsed = createTaSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
 
-  const { email, password, tutorIds } = parsed.data;
+  const { name, email, password, tutorIds } = parsed.data;
   const service = createServiceClient();
 
   const { data: tutors } = await service.from("tutors").select("id").in("id", tutorIds);
@@ -42,6 +43,7 @@ export async function createTa(input: unknown): Promise<{ error: string } | { su
     tutor_id: tutorIds[0],
     role: "ta",
     email,
+    name,
   });
 
   if (adminUserError) {
