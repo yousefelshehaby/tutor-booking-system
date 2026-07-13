@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# نظام حجز الدروس الخصوصية والدفع الإلكتروني
 
-## Getting Started
+نظام ويب يتيح للطلاب حجز مكان في مجموعات الدروس الخصوصية والدفع أونلاين مباشرة، بدون أي تدخل بشري في التعامل مع الأموال. المدفوعات تتم مباشرة لحساب المدرّس عبر بوابة الدفع Paymob.
 
-First, run the development server:
+## التقنيات المستخدمة
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 14+** (App Router, TypeScript)
+- **Supabase** (قاعدة بيانات PostgreSQL + Auth لصفحة الأدمن فقط)
+- **Tailwind CSS**
+- **Paymob API** للدفع (بطاقات بنكية + محافظ إلكترونية مثل فودافون كاش)
+- **exceljs** لتصدير بيانات الحجوزات إلى Excel
+
+> **ملاحظة:** هذا الملف هيكل أولي (skeleton) وسيتم استكماله بخطوات الإعداد التفصيلية لاحقًا (إنشاء مشروع Supabase، تشغيل الـ migrations، إعداد حساب Paymob، متغيرات البيئة، التشغيل محليًا، والنشر على Vercel).
+
+## خطوات الإعداد (سيتم استكمالها)
+
+1. إعداد مشروع Supabase
+2. تشغيل ملفات الـ migration الموجودة في `supabase/migrations`
+3. إعداد حساب Paymob (Test Mode) والحصول على المفاتيح
+4. نسخ `.env.example` إلى `.env.local` وملء المتغيرات
+5. تشغيل المشروع محليًا
+6. النشر على Vercel
+
+## هيكل المشروع
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+src/
+  app/
+    (student)/       صفحات الحجز الخاصة بالطالب
+    admin/            لوحة تحكم الأدمن
+    api/               API routes (webhooks، bookings، payment، export)
+  components/
+    booking/          مكونات واجهة الحجز
+    admin/             مكونات لوحة الأدمن
+    ui/                 مكونات عامة
+  lib/
+    supabase/          عملاء Supabase (client/server)
+    paymob/             تكامل بوابة الدفع Paymob
+    validation/         مخططات التحقق (zod)
+    excel/               منطق تصدير الإكسيل
+  types/                 أنواع TypeScript المشتركة
+supabase/
+  migrations/            ملفات SQL الخاصة بقاعدة البيانات
+```
