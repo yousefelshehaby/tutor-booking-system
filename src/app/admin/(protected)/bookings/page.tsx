@@ -15,14 +15,32 @@ interface BookingRow {
   payment_status: string;
   amount: number;
   created_at: string;
+  tutor_id: string;
   grades: { name: string } | { name: string }[] | null;
   groups: { name: string } | { name: string }[] | null;
+  tutors: { name: string } | { name: string }[] | null;
+}
+
+interface GradeOptionRow {
+  id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  tutor_id: string;
+}
+
+interface GroupOptionRow {
+  id: string;
+  name: string;
+  grade_id: string;
+  tutor_id: string;
 }
 
 export default async function AdminBookingsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    tutor?: string;
     grade?: string;
     group?: string;
     status?: string;
@@ -35,18 +53,19 @@ export default async function AdminBookingsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const { tutorId, isTa } = await getCurrentAdmin();
+  const { isTa, isSuperAdmin } = await getCurrentAdmin();
   const supabase = await createAdminServerClient();
   await supabase.rpc("expire_stale_reservations");
 
   let query = supabase
     .from("bookings")
     .select(
-      "id, booking_code, student_name, student_phone, guardian_phone, payment_method, payment_status, amount, created_at, grades(name), groups(name)",
+      "id, booking_code, student_name, student_phone, guardian_phone, payment_method, payment_status, amount, created_at, tutor_id, grades(name), groups(name), tutors(name)",
       { count: "exact" }
     )
     .order("created_at", { ascending: false });
 
+  if (isSuperAdmin && params.tutor) query = query.eq("tutor_id", params.tutor);
   if (params.grade) query = query.eq("grade_id", params.grade);
   if (params.group) query = query.eq("group_id", params.group);
   if (params.status) query = query.eq("payment_status", params.status);
@@ -57,15 +76,18 @@ export default async function AdminBookingsPage({
     );
   }
 
-  const [{ data: rows, count }, { data: grades }, { data: groups }] = await Promise.all([
-    query.range(from, to),
-    supabase.from("grades").select("id, name, display_order, is_active").order("display_order"),
-    supabase.from("groups").select("id, name, grade_id").order("name"),
-  ]);
+  const [{ data: rows, count }, { data: gradeRows }, { data: groupRows }, { data: tutors }] =
+    await Promise.all([
+      query.range(from, to),
+      supabase.from("grades").select("id, name, display_order, is_active, tutor_id").order("display_order"),
+      supabase.from("groups").select("id, name, grade_id, tutor_id").order("name"),
+      isSuperAdmin ? supabase.from("tutors").select("id, name").order("name") : Promise.resolve({ data: [] }),
+    ]);
 
   const bookings: AdminBooking[] = ((rows ?? []) as BookingRow[]).map((row) => {
     const gradeInfo = Array.isArray(row.grades) ? row.grades[0] : row.grades;
     const groupInfo = Array.isArray(row.groups) ? row.groups[0] : row.groups;
+    const tutorInfo = Array.isArray(row.tutors) ? row.tutors[0] : row.tutors;
     return {
       id: row.id,
       booking_code: row.booking_code,
@@ -78,15 +100,26 @@ export default async function AdminBookingsPage({
       created_at: row.created_at,
       grade_name: gradeInfo?.name ?? "غير معروف",
       group_name: groupInfo?.name ?? "غير معروف",
+      tutor_id: row.tutor_id,
+      tutor_name: tutorInfo?.name ?? "غير معروف",
     };
   });
+
+  const allGrades = (gradeRows ?? []) as GradeOptionRow[];
+  const allGroups = (groupRows ?? []) as GroupOptionRow[];
+
+  // For a tutor/ta these are already scoped to their own tutor via RLS. For
+  // a super admin with a tutor filter selected, narrow the dropdown options
+  // to that tutor so grade/group choices stay meaningful.
+  const gradeOptions = isSuperAdmin && params.tutor ? allGrades.filter((g) => g.tutor_id === params.tutor) : allGrades;
+  const groupOptions = isSuperAdmin && params.tutor ? allGroups.filter((g) => g.tutor_id === params.tutor) : allGroups;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>
         <Link
-          href="/api/admin/export"
+          href={`/api/admin/export${params.tutor ? `?tutor=${params.tutor}` : ""}`}
           className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
         >
           تصدير إلى Excel
@@ -94,18 +127,20 @@ export default async function AdminBookingsPage({
       </div>
       <BookingsTable
         bookings={bookings}
-        grades={grades ?? []}
-        groups={groups ?? []}
+        grades={gradeOptions}
+        groups={groupOptions}
+        tutors={tutors ?? []}
         totalCount={count ?? 0}
         pageSize={PAGE_SIZE}
         currentPage={page}
         filters={{
+          tutor: params.tutor ?? "",
           grade: params.grade ?? "",
           group: params.group ?? "",
           status: params.status ?? "",
           q: params.q ?? "",
         }}
-        tutorId={tutorId ?? ""}
+        isSuperAdmin={isSuperAdmin}
         readOnly={isTa}
       />
     </div>

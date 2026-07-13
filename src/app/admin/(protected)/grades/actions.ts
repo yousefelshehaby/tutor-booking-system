@@ -3,38 +3,56 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
-import { getCurrentAdmin } from "@/lib/auth/current-admin";
+import { resolveWriteTutorId } from "@/lib/auth/resolve-write-tutor";
 
 const gradeSchema = z.object({
   name: z.string().trim().min(1, "اسم الصف مطلوب"),
   display_order: z.coerce.number().int(),
+  tutorId: z.string().optional(),
 });
 
-export async function createGrade(input: unknown) {
+export async function createGrade(input: unknown): Promise<{ error: string } | { success: true }> {
   const parsed = gradeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
   }
 
-  const { tutorId } = await getCurrentAdmin();
-  if (!tutorId) return { error: "هذا الحساب غير مرتبط بمدرّس" };
+  const resolved = await resolveWriteTutorId(parsed.data.tutorId);
+  if ("error" in resolved) return resolved;
 
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("grades").insert({ ...parsed.data, tutor_id: tutorId });
+  const { error } = await supabase.from("grades").insert({
+    name: parsed.data.name,
+    display_order: parsed.data.display_order,
+    tutor_id: resolved.tutorId,
+  });
   if (error) return { error: "تعذر إضافة الصف الدراسي" };
 
   revalidatePath("/admin/grades");
   return { success: true };
 }
 
-export async function updateGrade(id: string, input: unknown) {
+export async function updateGrade(
+  id: string,
+  input: unknown
+): Promise<{ error: string } | { success: true }> {
   const parsed = gradeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
   }
 
+  const resolved = await resolveWriteTutorId(parsed.data.tutorId);
+  if ("error" in resolved) return resolved;
+
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("grades").update(parsed.data).eq("id", id);
+  const { error } = await supabase
+    .from("grades")
+    .update({
+      name: parsed.data.name,
+      display_order: parsed.data.display_order,
+      tutor_id: resolved.tutorId,
+    })
+    .eq("id", id);
   if (error) return { error: "تعذر تعديل الصف الدراسي" };
 
   revalidatePath("/admin/grades");

@@ -12,6 +12,7 @@ interface BookingExportRow {
   amount: number;
   created_at: string;
   group_id: string;
+  tutor_name?: string;
 }
 
 interface GroupInfo {
@@ -42,16 +43,19 @@ const STATUS_FONT: Record<string, string> = {
   cancelled: "FF595959",
 };
 
-const COLUMNS = [
-  { header: "كود الحجز", key: "booking_code", width: 16 },
-  { header: "اسم الطالب", key: "student_name", width: 24 },
-  { header: "رقم الطالب", key: "student_phone", width: 16 },
-  { header: "رقم ولي الأمر", key: "guardian_phone", width: 16 },
-  { header: "طريقة الدفع", key: "payment_method", width: 16 },
-  { header: "حالة الدفع", key: "payment_status", width: 16 },
-  { header: "المبلغ", key: "amount", width: 12 },
-  { header: "تاريخ الحجز", key: "created_at", width: 18 },
-];
+function buildColumns(includeTutorColumn: boolean) {
+  return [
+    ...(includeTutorColumn ? [{ header: "المدرّس", key: "tutor_name", width: 18 }] : []),
+    { header: "كود الحجز", key: "booking_code", width: 16 },
+    { header: "اسم الطالب", key: "student_name", width: 24 },
+    { header: "رقم الطالب", key: "student_phone", width: 16 },
+    { header: "رقم ولي الأمر", key: "guardian_phone", width: 16 },
+    { header: "طريقة الدفع", key: "payment_method", width: 16 },
+    { header: "حالة الدفع", key: "payment_status", width: 16 },
+    { header: "المبلغ", key: "amount", width: 12 },
+    { header: "تاريخ الحجز", key: "created_at", width: 18 },
+  ];
+}
 
 function sanitizeSheetName(name: string): string {
   return name.replace(/[*?:/\\[\]]/g, "").slice(0, 31) || "بيانات";
@@ -61,7 +65,11 @@ export async function buildBookingsWorkbook(params: {
   grades: GradeInfo[];
   groups: GroupInfo[];
   bookings: BookingExportRow[];
+  includeTutorColumn?: boolean;
 }): Promise<ExcelJS.Buffer> {
+  const includeTutorColumn = params.includeTutorColumn ?? false;
+  const columns = buildColumns(includeTutorColumn);
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "نظام حجز الدروس الخصوصية";
   workbook.created = new Date();
@@ -87,7 +95,7 @@ export async function buildBookingsWorkbook(params: {
       views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }],
     });
 
-    sheet.columns = COLUMNS;
+    sheet.columns = columns;
     sheet.getRow(1).font = { bold: true };
     sheet.getRow(1).eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE5E7EB" } };
@@ -99,7 +107,7 @@ export async function buildBookingsWorkbook(params: {
       const groupBookings = bookingsByGroup.get(group.id) ?? [];
 
       const headerRow = sheet.addRow([`${group.name} — ${group.days} — ${group.time}`]);
-      sheet.mergeCells(headerRow.number, 1, headerRow.number, COLUMNS.length);
+      sheet.mergeCells(headerRow.number, 1, headerRow.number, columns.length);
       headerRow.font = { bold: true };
       headerRow.getCell(1).fill = {
         type: "pattern",
@@ -110,7 +118,7 @@ export async function buildBookingsWorkbook(params: {
 
       if (groupBookings.length === 0) {
         const emptyRow = sheet.addRow(["لا توجد حجوزات في هذه المجموعة"]);
-        sheet.mergeCells(emptyRow.number, 1, emptyRow.number, COLUMNS.length);
+        sheet.mergeCells(emptyRow.number, 1, emptyRow.number, columns.length);
         emptyRow.getCell(1).font = { italic: true, color: { argb: "FF9CA3AF" } };
         emptyRow.getCell(1).alignment = { horizontal: "right" };
         continue;
@@ -118,6 +126,7 @@ export async function buildBookingsWorkbook(params: {
 
       for (const booking of groupBookings) {
         const row = sheet.addRow({
+          tutor_name: booking.tutor_name,
           booking_code: booking.booking_code,
           student_name: booking.student_name,
           student_phone: booking.student_phone,

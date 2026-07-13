@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
-import { getCurrentAdmin } from "@/lib/auth/current-admin";
+import { resolveWriteTutorId } from "@/lib/auth/resolve-write-tutor";
 
 const groupSchema = z.object({
   grade_id: z.uuid("من فضلك اختر الصف الدراسي"),
@@ -17,33 +17,66 @@ const groupSchema = z.object({
     .nonnegative("الاشتراك الشهري يجب أن يكون رقمًا صحيحًا")
     .nullable()
     .optional(),
+  tutorId: z.string().optional(),
 });
 
-export async function createGroup(input: unknown) {
+async function assertGradeBelongsToTutor(
+  supabase: Awaited<ReturnType<typeof createAdminServerClient>>,
+  gradeId: string,
+  tutorId: string
+): Promise<boolean> {
+  const { data } = await supabase.from("grades").select("id").eq("id", gradeId).eq("tutor_id", tutorId).maybeSingle();
+  return Boolean(data);
+}
+
+export async function createGroup(input: unknown): Promise<{ error: string } | { success: true }> {
   const parsed = groupSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
   }
 
-  const { tutorId } = await getCurrentAdmin();
-  if (!tutorId) return { error: "هذا الحساب غير مرتبط بمدرّس" };
+  const resolved = await resolveWriteTutorId(parsed.data.tutorId);
+  if ("error" in resolved) return resolved;
 
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("groups").insert({ ...parsed.data, tutor_id: tutorId });
+
+  if (!(await assertGradeBelongsToTutor(supabase, parsed.data.grade_id, resolved.tutorId))) {
+    return { error: "الصف الدراسي المختار لا ينتمي لهذا المدرّس" };
+  }
+
+  const { grade_id, name, days, time, capacity, price, monthly_fee } = parsed.data;
+  const { error } = await supabase
+    .from("groups")
+    .insert({ grade_id, name, days, time, capacity, price, monthly_fee, tutor_id: resolved.tutorId });
   if (error) return { error: "تعذر إضافة المجموعة" };
 
   revalidatePath("/admin/groups");
   return { success: true };
 }
 
-export async function updateGroup(id: string, input: unknown) {
+export async function updateGroup(
+  id: string,
+  input: unknown
+): Promise<{ error: string } | { success: true }> {
   const parsed = groupSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
   }
 
+  const resolved = await resolveWriteTutorId(parsed.data.tutorId);
+  if ("error" in resolved) return resolved;
+
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("groups").update(parsed.data).eq("id", id);
+
+  if (!(await assertGradeBelongsToTutor(supabase, parsed.data.grade_id, resolved.tutorId))) {
+    return { error: "الصف الدراسي المختار لا ينتمي لهذا المدرّس" };
+  }
+
+  const { grade_id, name, days, time, capacity, price, monthly_fee } = parsed.data;
+  const { error } = await supabase
+    .from("groups")
+    .update({ grade_id, name, days, time, capacity, price, monthly_fee, tutor_id: resolved.tutorId })
+    .eq("id", id);
   if (error) return { error: "تعذر تعديل المجموعة" };
 
   revalidatePath("/admin/groups");

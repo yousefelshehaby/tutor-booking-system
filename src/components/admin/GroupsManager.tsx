@@ -9,7 +9,7 @@ import {
   toggleGroupActive,
   updateGroup,
 } from "@/app/admin/(protected)/groups/actions";
-import type { Grade } from "@/types/booking";
+import type { AdminGrade, TutorOption } from "@/components/admin/GradesManager";
 
 export interface AdminGroup {
   id: string;
@@ -22,6 +22,8 @@ export interface AdminGroup {
   monthly_fee: number | null;
   is_active: boolean;
   grade_name: string;
+  tutor_id: string;
+  tutor_name: string;
 }
 
 interface FormState {
@@ -32,6 +34,7 @@ interface FormState {
   capacity: string;
   price: string;
   monthly_fee: string;
+  tutorId: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -42,15 +45,29 @@ const EMPTY_FORM: FormState = {
   capacity: "",
   price: "",
   monthly_fee: "",
+  tutorId: "",
 };
 
-export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades: Grade[] }) {
+export function GroupsManager({
+  groups,
+  grades,
+  isSuperAdmin,
+  tutors,
+}: {
+  groups: AdminGroup[];
+  grades: AdminGrade[];
+  isSuperAdmin: boolean;
+  tutors: TutorOption[];
+}) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+
+  const createGrades = isSuperAdmin ? grades.filter((g) => g.tutor_id === form.tutorId) : grades;
+  const editGrades = isSuperAdmin ? grades.filter((g) => g.tutor_id === editForm.tutorId) : grades;
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -60,10 +77,11 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
     const result = await createGroup({
       ...form,
       monthly_fee: form.monthly_fee.trim() === "" ? null : form.monthly_fee,
+      tutorId: isSuperAdmin ? form.tutorId : undefined,
     });
 
     setSubmitting(false);
-    if (result.error) {
+    if ("error" in result) {
       setError(result.error);
       return;
     }
@@ -82,6 +100,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
       capacity: String(group.capacity),
       price: String(group.price),
       monthly_fee: group.monthly_fee === null ? "" : String(group.monthly_fee),
+      tutorId: group.tutor_id,
     });
   }
 
@@ -89,10 +108,13 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
     const result = await updateGroup(id, {
       ...editForm,
       monthly_fee: editForm.monthly_fee.trim() === "" ? null : editForm.monthly_fee,
+      tutorId: isSuperAdmin ? editForm.tutorId : undefined,
     });
-    if (!result.error) {
+    if (!("error" in result)) {
       setEditingId(null);
       router.refresh();
+    } else {
+      alert(result.error);
     }
   }
 
@@ -111,21 +133,41 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
     }
   }
 
+  const colCount = isSuperAdmin ? 10 : 9;
+
   return (
     <div className="flex flex-col gap-6" dir="rtl">
       <form
         onSubmit={handleCreate}
         className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
       >
+        {isSuperAdmin && (
+          <Field label="المدرّس">
+            <select
+              required
+              value={form.tutorId}
+              onChange={(e) => setForm({ ...form, tutorId: e.target.value, grade_id: "" })}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">اختر...</option>
+              {tutors.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="الصف الدراسي">
           <select
             required
             value={form.grade_id}
             onChange={(e) => setForm({ ...form, grade_id: e.target.value })}
+            disabled={isSuperAdmin && !form.tutorId}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           >
             <option value="">اختر...</option>
-            {grades.map((g) => (
+            {createGrades.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>
@@ -195,9 +237,10 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[800px] text-right text-sm">
+        <table className="w-full min-w-[900px] text-right text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
             <tr>
+              {isSuperAdmin && <th className="px-4 py-3 font-medium">المدرّس</th>}
               <th className="px-4 py-3 font-medium">الصف</th>
               <th className="px-4 py-3 font-medium">المجموعة</th>
               <th className="px-4 py-3 font-medium">الأيام</th>
@@ -213,13 +256,30 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
             {groups.map((group) =>
               editingId === group.id ? (
                 <tr key={group.id} className="border-t border-zinc-100">
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3">
+                      <select
+                        value={editForm.tutorId}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, tutorId: e.target.value, grade_id: "" })
+                        }
+                        className="rounded-lg border border-zinc-300 px-2 py-1"
+                      >
+                        {tutors.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <select
                       value={editForm.grade_id}
                       onChange={(e) => setEditForm({ ...editForm, grade_id: e.target.value })}
                       className="rounded-lg border border-zinc-300 px-2 py-1"
                     >
-                      {grades.map((g) => (
+                      {editGrades.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.name}
                         </option>
@@ -289,6 +349,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
                 </tr>
               ) : (
                 <tr key={group.id} className="border-t border-zinc-100">
+                  {isSuperAdmin && <td className="px-4 py-3">{group.tutor_name}</td>}
                   <td className="px-4 py-3">{group.grade_name}</td>
                   <td className="px-4 py-3">{group.name}</td>
                   <td className="px-4 py-3">{group.days}</td>
@@ -330,7 +391,7 @@ export function GroupsManager({ groups, grades }: { groups: AdminGroup[]; grades
             )}
             {groups.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={colCount} className="px-4 py-6 text-center text-zinc-500">
                   لا توجد مجموعات بعد
                 </td>
               </tr>

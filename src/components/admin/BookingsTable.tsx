@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { markBookingPaid, cancelBooking } from "@/app/admin/(protected)/bookings/actions";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 import { StudentNotes } from "@/components/admin/StudentNotes";
-import type { Grade } from "@/types/booking";
+import type { TutorOption } from "@/components/admin/GradesManager";
 
 export interface AdminBooking {
   id: string;
@@ -19,15 +19,25 @@ export interface AdminBooking {
   created_at: string;
   grade_name: string;
   group_name: string;
+  tutor_id: string;
+  tutor_name: string;
+}
+
+interface GradeOption {
+  id: string;
+  name: string;
+  tutor_id: string;
 }
 
 interface GroupOption {
   id: string;
   name: string;
   grade_id: string;
+  tutor_id: string;
 }
 
 interface Filters {
+  tutor: string;
   grade: string;
   group: string;
   status: string;
@@ -45,21 +55,23 @@ export function BookingsTable({
   bookings,
   grades,
   groups,
+  tutors,
   totalCount,
   pageSize,
   currentPage,
   filters,
-  tutorId,
+  isSuperAdmin,
   readOnly = false,
 }: {
   bookings: AdminBooking[];
-  grades: Grade[];
+  grades: GradeOption[];
   groups: GroupOption[];
+  tutors: TutorOption[];
   totalCount: number;
   pageSize: number;
   currentPage: number;
   filters: Filters;
-  tutorId: string;
+  isSuperAdmin: boolean;
   readOnly?: boolean;
 }) {
   const router = useRouter();
@@ -69,6 +81,7 @@ export function BookingsTable({
 
   function updateParams(next: Partial<Filters & { page: string }>) {
     const params = new URLSearchParams({
+      tutor: filters.tutor,
       grade: filters.grade,
       group: filters.group,
       status: filters.status,
@@ -97,10 +110,29 @@ export function BookingsTable({
   }
 
   const filteredGroups = filters.grade ? groups.filter((g) => g.grade_id === filters.grade) : groups;
+  const colCount = isSuperAdmin ? 8 : 7;
 
   return (
     <div className="flex flex-col gap-4" dir="rtl">
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+        {isSuperAdmin && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">المدرّس</label>
+            <select
+              value={filters.tutor}
+              onChange={(e) => updateParams({ tutor: e.target.value, grade: "", group: "" })}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">الكل</option>
+              {tutors.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">الصف الدراسي</label>
           <select
@@ -170,6 +202,7 @@ export function BookingsTable({
         <table className="w-full min-w-[900px] text-right text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
             <tr>
+              {isSuperAdmin && <th className="px-4 py-3 font-medium">المدرّس</th>}
               <th className="px-4 py-3 font-medium">كود الحجز</th>
               <th className="px-4 py-3 font-medium">الطالب</th>
               <th className="px-4 py-3 font-medium">الصف / المجموعة</th>
@@ -185,6 +218,7 @@ export function BookingsTable({
               return (
                 <Fragment key={booking.id}>
                   <tr className="border-t border-zinc-100">
+                    {isSuperAdmin && <td className="px-4 py-3">{booking.tutor_name}</td>}
                     <td className="px-4 py-3 font-mono text-xs">{booking.booking_code}</td>
                     <td className="px-4 py-3">
                       <div>{booking.student_name}</div>
@@ -235,8 +269,8 @@ export function BookingsTable({
                   </tr>
                   {isExpanded && (
                     <tr className="border-t border-zinc-100">
-                      <td colSpan={7} className="px-4 py-3">
-                        <StudentNotes tutorId={tutorId} bookingId={booking.id} />
+                      <td colSpan={colCount} className="px-4 py-3">
+                        <StudentNotes tutorId={booking.tutor_id} bookingId={booking.id} />
                       </td>
                     </tr>
                   )}
@@ -245,7 +279,7 @@ export function BookingsTable({
             })}
             {bookings.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={colCount} className="px-4 py-6 text-center text-zinc-500">
                   لا توجد حجوزات مطابقة
                 </td>
               </tr>

@@ -35,7 +35,7 @@ export function TutorsManager({
     const result = await createTutor(form);
 
     setSubmitting(false);
-    if (result.error) {
+    if ("error" in result) {
       setError(result.error);
       return;
     }

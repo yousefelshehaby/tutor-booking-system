@@ -19,7 +19,7 @@ const createTutorSchema = z.object({
   adminPassword: z.string().min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف"),
 });
 
-export async function createTutor(input: unknown) {
+export async function createTutor(input: unknown): Promise<{ error: string } | { success: true }> {
   const { isSuperAdmin } = await getCurrentAdmin();
   if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
 
@@ -73,7 +73,10 @@ export async function createTutor(input: unknown) {
   return { success: true };
 }
 
-export async function toggleTutorActive(tutorId: string, isActive: boolean) {
+export async function toggleTutorActive(
+  tutorId: string,
+  isActive: boolean
+): Promise<{ error: string } | { success: true }> {
   const { isSuperAdmin } = await getCurrentAdmin();
   if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
 
@@ -85,7 +88,10 @@ export async function toggleTutorActive(tutorId: string, isActive: boolean) {
   return { success: true };
 }
 
-export async function resetAdminPassword(adminUserId: string, newPassword: string) {
+export async function resetAdminPassword(
+  adminUserId: string,
+  newPassword: string
+): Promise<{ error: string } | { success: true }> {
   const { isSuperAdmin } = await getCurrentAdmin();
   if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
 

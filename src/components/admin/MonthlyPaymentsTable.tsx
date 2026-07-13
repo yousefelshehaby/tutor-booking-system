@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { markMonthlyPaymentPaid } from "@/app/admin/(protected)/monthly-payments/actions";
-import type { Grade } from "@/types/booking";
+import type { TutorOption } from "@/components/admin/GradesManager";
 
 export interface MatrixRow {
   booking_id: string;
   booking_code: string;
   student_name: string;
   student_phone: string;
+  tutor_id: string;
+  tutor_name: string;
   grade_id: string;
   grade_name: string;
   group_id: string;
@@ -19,13 +21,21 @@ export interface MatrixRow {
   monthly_payment_id: string | null;
 }
 
+interface GradeOption {
+  id: string;
+  name: string;
+  tutor_id: string;
+}
+
 interface GroupOption {
   id: string;
   name: string;
   grade_id: string;
+  tutor_id: string;
 }
 
 interface Filters {
+  tutor: string;
   grade: string;
   group: string;
   q: string;
@@ -35,13 +45,17 @@ export function MonthlyPaymentsTable({
   rows,
   grades,
   groups,
+  tutors,
   month,
+  isSuperAdmin,
   filters,
 }: {
   rows: MatrixRow[];
-  grades: Grade[];
+  grades: GradeOption[];
   groups: GroupOption[];
+  tutors: TutorOption[];
   month: string;
+  isSuperAdmin: boolean;
   filters: Filters;
 }) {
   const router = useRouter();
@@ -50,6 +64,7 @@ export function MonthlyPaymentsTable({
   function updateParams(next: Partial<Filters & { month: string }>) {
     const params = new URLSearchParams({
       month,
+      tutor: filters.tutor,
       grade: filters.grade,
       group: filters.group,
       q: filters.q,
@@ -76,6 +91,7 @@ export function MonthlyPaymentsTable({
 
   const filteredGroups = filters.grade ? groups.filter((g) => g.grade_id === filters.grade) : groups;
   const totalCollected = rows.filter((r) => r.is_paid).reduce((sum, r) => sum + Number(r.amount), 0);
+  const colCount = isSuperAdmin ? 6 : 5;
 
   return (
     <div className="flex flex-col gap-4" dir="rtl">
@@ -89,6 +105,24 @@ export function MonthlyPaymentsTable({
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
         </div>
+
+        {isSuperAdmin && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">المدرّس</label>
+            <select
+              value={filters.tutor}
+              onChange={(e) => updateParams({ tutor: e.target.value, grade: "", group: "" })}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">الكل</option>
+              {tutors.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">الصف الدراسي</label>
@@ -151,6 +185,7 @@ export function MonthlyPaymentsTable({
         <table className="w-full min-w-[800px] text-right text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
             <tr>
+              {isSuperAdmin && <th className="px-4 py-3 font-medium">المدرّس</th>}
               <th className="px-4 py-3 font-medium">الطالب</th>
               <th className="px-4 py-3 font-medium">الصف / المجموعة</th>
               <th className="px-4 py-3 font-medium">المبلغ</th>
@@ -161,6 +196,7 @@ export function MonthlyPaymentsTable({
           <tbody>
             {rows.map((row) => (
               <tr key={row.booking_id} className="border-t border-zinc-100">
+                {isSuperAdmin && <td className="px-4 py-3">{row.tutor_name}</td>}
                 <td className="px-4 py-3">
                   <div>{row.student_name}</div>
                   <div className="text-xs text-zinc-500" dir="ltr">
@@ -195,7 +231,7 @@ export function MonthlyPaymentsTable({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={colCount} className="px-4 py-6 text-center text-zinc-500">
                   لا يوجد طلاب مسجلين
                 </td>
               </tr>

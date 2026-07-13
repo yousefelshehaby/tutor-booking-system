@@ -9,6 +9,7 @@ interface BookingInfo {
   grade_id: string;
   group_id: string;
   created_at: string;
+  tutor_name?: string;
 }
 
 interface GroupInfo {
@@ -58,8 +59,10 @@ export async function buildMonthlyWorkbook(params: {
   bookings: BookingInfo[];
   monthlyPayments: MonthlyPaymentInfo[];
   currentMonth: string;
+  includeTutorColumn?: boolean;
 }): Promise<ExcelJS.Buffer> {
   const { grades, groups, bookings, monthlyPayments, currentMonth } = params;
+  const includeTutorColumn = params.includeTutorColumn ?? false;
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "نظام حجز الدروس الخصوصية";
@@ -94,6 +97,7 @@ export async function buildMonthlyWorkbook(params: {
   }
 
   const columns = [
+    ...(includeTutorColumn ? [{ header: "المدرّس", key: "tutor_name", width: 18 }] : []),
     { header: "كود الحجز", key: "booking_code", width: 16 },
     { header: "اسم الطالب", key: "student_name", width: 24 },
     ...months.map((m) => ({ header: formatMonth(m), key: m, width: 14 })),
@@ -135,6 +139,9 @@ export async function buildMonthlyWorkbook(params: {
           booking_code: booking.booking_code,
           student_name: booking.student_name,
         };
+        if (includeTutorColumn) {
+          rowData.tutor_name = booking.tutor_name ?? "غير معروف";
+        }
 
         const row = sheet.addRow(rowData);
 
