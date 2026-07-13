@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { signOut } from "@/lib/auth/admin-actions";
+import { getCurrentAdmin } from "@/lib/auth/current-admin";
+import { createAdminServerClient } from "@/lib/supabase/admin-server";
 
 const NAV_LINKS = [
   { href: "/admin/dashboard", label: "لوحة القيادة" },
@@ -10,13 +12,31 @@ const NAV_LINKS = [
   { href: "/admin/settings", label: "الإعدادات" },
 ];
 
-export default function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
+  const { isSuperAdmin, tutorId } = await getCurrentAdmin();
+
+  let activeTutorName: string | null = null;
+  if (tutorId) {
+    const supabase = await createAdminServerClient();
+    const { data } = await supabase.from("tutors").select("name").eq("id", tutorId).maybeSingle();
+    activeTutorName = data?.name ?? null;
+  }
+
+  const navLinks = isSuperAdmin
+    ? [...NAV_LINKS, { href: "/admin/tutors", label: "المدرّسون" }]
+    : NAV_LINKS;
+
   return (
     <div className="flex min-h-screen flex-1 flex-col" dir="rtl">
       <header className="border-b border-zinc-200 bg-white">
+        {isSuperAdmin && activeTutorName && (
+          <div className="bg-blue-50 px-6 py-1.5 text-center text-xs font-medium text-blue-700">
+            أنت الآن تدير: {activeTutorName}
+          </div>
+        )}
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <nav className="flex flex-wrap gap-2">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
