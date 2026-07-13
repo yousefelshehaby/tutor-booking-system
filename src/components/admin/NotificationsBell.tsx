@@ -75,13 +75,19 @@ export function NotificationsBell() {
                   n.is_read ? "" : "bg-blue-50"
                 }`}
               >
-                <p className="font-medium text-zinc-900">
-                  ملاحظة جديدة على {n.student_name} ({n.booking_code})
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {n.grade_name} — {n.group_name}
-                </p>
-                {n.note_excerpt && <p className="mt-1 text-xs text-zinc-600">{n.note_excerpt}</p>}
+                {n.type === "student_note" ? (
+                  <>
+                    <p className="font-medium text-zinc-900">
+                      ملاحظة جديدة على {n.student_name} ({n.booking_code})
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {n.grade_name} — {n.group_name}
+                    </p>
+                    {n.note_excerpt && <p className="mt-1 text-xs text-zinc-600">{n.note_excerpt}</p>}
+                  </>
+                ) : (
+                  <p className="font-medium text-zinc-900">{n.message}</p>
+                )}
                 <p className="mt-1 text-xs text-zinc-400">
                   {new Date(n.created_at).toLocaleString("ar-EG")}
                 </p>

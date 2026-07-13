@@ -4,11 +4,13 @@ import { createAdminServerClient } from "@/lib/supabase/admin-server";
 
 export interface AdminNotification {
   id: string;
-  student_name: string;
-  booking_code: string;
-  grade_name: string;
-  group_name: string;
+  type: "student_note" | "ta_request_submitted" | "ta_request_resolved";
+  student_name: string | null;
+  booking_code: string | null;
+  grade_name: string | null;
+  group_name: string | null;
   note_excerpt: string | null;
+  message: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -22,7 +24,9 @@ export async function getMyNotifications(): Promise<AdminNotification[]> {
 
   const { data } = await supabase
     .from("notifications")
-    .select("id, student_name, booking_code, grade_name, group_name, note_excerpt, is_read, created_at")
+    .select(
+      "id, type, student_name, booking_code, grade_name, group_name, note_excerpt, message, is_read, created_at"
+    )
     .eq("recipient_admin_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);

@@ -13,10 +13,22 @@ const createTaSchema = z.object({
   tutorIds: z.array(z.uuid()).min(1, "من فضلك اختر مدرّس واحد على الأقل"),
 });
 
-export async function createTa(input: unknown): Promise<{ error: string } | { success: true }> {
-  const { isSuperAdmin } = await getCurrentAdmin();
-  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+export interface CreateTaAccountInput {
+  name: string;
+  email: string;
+  password: string;
+  tutorIds: string[];
+}
 
+/**
+ * Shared by the manual "add TA" form and the request-approval flow.
+ * Caller is responsible for the isSuperAdmin check — this has no
+ * authorization check of its own since it's also invoked internally
+ * from approveTaRequest.
+ */
+export async function createTaAccount(
+  input: CreateTaAccountInput
+): Promise<{ error: string } | { success: true; taId: string }> {
   const parsed = createTaSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
 
@@ -60,6 +72,16 @@ export async function createTa(input: unknown): Promise<{ error: string } | { su
     await service.auth.admin.deleteUser(authUser.user.id);
     return { error: "تعذر ربط المساعد بالمدرّسين المختارين" };
   }
+
+  return { success: true, taId: authUser.user.id };
+}
+
+export async function createTa(input: unknown): Promise<{ error: string } | { success: true }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const result = await createTaAccount(input as CreateTaAccountInput);
+  if ("error" in result) return result;
 
   revalidatePath("/admin/tas");
   return { success: true };
