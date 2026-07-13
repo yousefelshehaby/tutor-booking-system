@@ -3,6 +3,7 @@ import { signOut } from "@/lib/auth/admin-actions";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
 import { NotificationsBell } from "@/components/admin/NotificationsBell";
+import { TaTutorSwitcher } from "@/components/admin/TaTutorSwitcher";
 
 const FULL_NAV_LINKS = [
   { href: "/admin/dashboard", label: "لوحة القيادة" },
@@ -17,13 +18,27 @@ const FULL_NAV_LINKS = [
 const TA_NAV_LINKS = [{ href: "/admin/bookings", label: "الحجوزات" }];
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { role, isSuperAdmin, isTa, tutorId } = await getCurrentAdmin();
+  const { id, role, isSuperAdmin, isTa, tutorId } = await getCurrentAdmin();
 
   let activeTutorName: string | null = null;
+  let taLinks: { tutor_id: string; tutor_name: string }[] = [];
+
   if (tutorId) {
     const supabase = await createAdminServerClient();
     const { data } = await supabase.from("tutors").select("name").eq("id", tutorId).maybeSingle();
     activeTutorName = data?.name ?? null;
+
+    if (isTa && id) {
+      const { data: linkRows } = await supabase
+        .from("ta_tutor_links")
+        .select("tutor_id, tutors(name)")
+        .eq("ta_id", id);
+
+      taLinks = (linkRows ?? []).map((row) => {
+        const tutorInfo = Array.isArray(row.tutors) ? row.tutors[0] : row.tutors;
+        return { tutor_id: row.tutor_id, tutor_name: tutorInfo?.name ?? "غير معروف" };
+      });
+    }
   }
 
   const navLinks = isTa
@@ -38,6 +53,14 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         {isSuperAdmin && activeTutorName && (
           <div className="bg-blue-50 px-6 py-1.5 text-center text-xs font-medium text-blue-700">
             أنت الآن تدير: {activeTutorName}
+          </div>
+        )}
+        {isTa && tutorId && taLinks.length > 1 && (
+          <TaTutorSwitcher links={taLinks} activeTutorId={tutorId} />
+        )}
+        {isTa && tutorId && taLinks.length <= 1 && activeTutorName && (
+          <div className="bg-blue-50 px-6 py-1.5 text-center text-xs font-medium text-blue-700">
+            تعمل الآن مع: {activeTutorName}
           </div>
         )}
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">

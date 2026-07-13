@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { createTa, setTaActive } from "@/app/admin/(protected)/tas/actions";
+import { createTa, setTaActive, updateTaTutorLinks } from "@/app/admin/(protected)/tas/actions";
 import { resetAdminPassword } from "@/app/admin/(protected)/tutors/actions";
 import type { TutorOption } from "@/components/admin/GradesManager";
 
@@ -11,8 +11,8 @@ export interface AdminTa {
   id: string;
   email: string | null;
   is_active: boolean;
-  tutor_id: string;
-  tutor_name: string;
+  active_tutor_id: string;
+  linked_tutors: { tutor_id: string; tutor_name: string }[];
 }
 
 export function TAsManager({
@@ -29,18 +29,28 @@ export function TAsManager({
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [tutorId, setTutorId] = useState("");
+  const [selectedTutorIds, setSelectedTutorIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [editingLinksId, setEditingLinksId] = useState<string | null>(null);
+  const [editingTutorIds, setEditingTutorIds] = useState<string[]>([]);
+  const [linksError, setLinksError] = useState<string | null>(null);
+  const [savingLinks, setSavingLinks] = useState(false);
+
+  function toggleSelected(tutorId: string) {
+    setSelectedTutorIds((prev) =>
+      prev.includes(tutorId) ? prev.filter((id) => id !== tutorId) : [...prev, tutorId]
+    );
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
 
-    const result = await createTa({ email, password, tutorId });
+    const result = await createTa({ email, password, tutorIds: selectedTutorIds });
 
     setSubmitting(false);
     if ("error" in result) {
@@ -50,7 +60,7 @@ export function TAsManager({
 
     setEmail("");
     setPassword("");
-    setTutorId("");
+    setSelectedTutorIds([]);
     router.refresh();
   }
 
@@ -74,6 +84,34 @@ export function TAsManager({
     }
   }
 
+  function startEditingLinks(ta: AdminTa) {
+    setEditingLinksId(ta.id);
+    setEditingTutorIds(ta.linked_tutors.map((t) => t.tutor_id));
+    setLinksError(null);
+  }
+
+  function toggleEditingTutor(tutorId: string) {
+    setEditingTutorIds((prev) =>
+      prev.includes(tutorId) ? prev.filter((id) => id !== tutorId) : [...prev, tutorId]
+    );
+  }
+
+  async function handleSaveLinks(taId: string) {
+    setSavingLinks(true);
+    setLinksError(null);
+
+    const result = await updateTaTutorLinks(taId, editingTutorIds);
+
+    setSavingLinks(false);
+    if ("error" in result) {
+      setLinksError(result.error);
+      return;
+    }
+
+    setEditingLinksId(null);
+    router.refresh();
+  }
+
   const colCount = isSuperAdmin ? 4 : 3;
 
   return (
@@ -81,49 +119,60 @@ export function TAsManager({
       {canCreate && (
         <form
           onSubmit={handleCreate}
-          className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-4"
+          className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4"
         >
-          {isSuperAdmin && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-700">المدرّس</label>
-              <select
+              <label className="mb-1 block text-sm font-medium text-zinc-700">البريد الإلكتروني</label>
+              <input
+                type="email"
                 required
-                value={tutorId}
-                onChange={(e) => setTutorId(e.target.value)}
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              >
-                <option value="">اختر...</option>
-                {tutors.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
-          )}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">البريد الإلكتروني</label>
-            <input
-              type="email"
-              required
-              dir="ltr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            />
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700">كلمة المرور</label>
+              <input
+                type="text"
+                required
+                dir="ltr"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">كلمة المرور</label>
-            <input
-              type="text"
-              required
-              dir="ltr"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            />
+            <label className="mb-2 block text-sm font-medium text-zinc-700">
+              المدرّسون (يمكن اختيار أكثر من مدرّس واحد)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {tutors.map((t) => (
+                <label
+                  key={t.id}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${
+                    selectedTutorIds.includes(t.id)
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-zinc-200 text-zinc-600"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTutorIds.includes(t.id)}
+                    onChange={() => toggleSelected(t.id)}
+                    className="sr-only"
+                  />
+                  {t.name}
+                </label>
+              ))}
+            </div>
           </div>
-          <div className="flex items-end">
+
+          <div>
             <Button type="submit" disabled={submitting}>
               {submitting ? "جاري الإنشاء..." : "إضافة مساعد"}
             </Button>
@@ -137,7 +186,7 @@ export function TAsManager({
         <table className="w-full min-w-[600px] text-right text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
             <tr>
-              {isSuperAdmin && <th className="px-4 py-3 font-medium">المدرّس</th>}
+              {isSuperAdmin && <th className="px-4 py-3 font-medium">المدرّسون</th>}
               <th className="px-4 py-3 font-medium">البريد الإلكتروني</th>
               <th className="px-4 py-3 font-medium">الحالة</th>
               <th className="px-4 py-3 font-medium">إجراءات</th>
@@ -146,7 +195,70 @@ export function TAsManager({
           <tbody>
             {tas.map((ta) => (
               <tr key={ta.id} className="border-t border-zinc-100">
-                {isSuperAdmin && <td className="px-4 py-3">{ta.tutor_name}</td>}
+                {isSuperAdmin && (
+                  <td className="px-4 py-3">
+                    {editingLinksId === ta.id ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {tutors.map((t) => (
+                            <label
+                              key={t.id}
+                              className={`flex cursor-pointer items-center gap-1 rounded-lg border-2 px-2 py-1 text-xs ${
+                                editingTutorIds.includes(t.id)
+                                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                                  : "border-zinc-200 text-zinc-600"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={editingTutorIds.includes(t.id)}
+                                onChange={() => toggleEditingTutor(t.id)}
+                                className="sr-only"
+                              />
+                              {t.name}
+                            </label>
+                          ))}
+                        </div>
+                        {linksError && <p className="text-xs text-red-600">{linksError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSaveLinks(ta.id)}
+                            disabled={savingLinks}
+                            className="text-xs font-medium text-blue-600 hover:underline"
+                          >
+                            حفظ
+                          </button>
+                          <button
+                            onClick={() => setEditingLinksId(null)}
+                            className="text-xs text-zinc-500 hover:underline"
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>
+                          {ta.linked_tutors.map((t) => t.tutor_name).join("، ") || "لا يوجد"}
+                          {ta.linked_tutors.length > 1 && (
+                            <span className="mr-1 text-xs text-zinc-500">
+                              (يعمل الآن مع:{" "}
+                              {ta.linked_tutors.find((t) => t.tutor_id === ta.active_tutor_id)?.tutor_name ??
+                                "-"}
+                              )
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          onClick={() => startEditingLinks(ta)}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          تعديل
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-3" dir="ltr">
                   {ta.email}
                 </td>
