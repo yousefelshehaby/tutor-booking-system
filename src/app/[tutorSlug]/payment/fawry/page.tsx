@@ -1,17 +1,20 @@
 import Link from "next/link";
 
 export default async function FawryReferencePage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ tutorSlug: string }>;
   searchParams: Promise<{ code?: string; ref?: string }>;
 }) {
+  const { tutorSlug } = await params;
   const { code, ref } = await searchParams;
 
   if (!code || !ref) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-zinc-600">بيانات الدفع غير مكتملة</p>
-        <Link href="/" className="mt-4 font-medium text-blue-600 hover:underline">
+        <Link href={`/${tutorSlug}`} className="mt-4 font-medium text-blue-600 hover:underline">
           العودة للصفحة الرئيسية
         </Link>
       </main>
@@ -36,7 +39,7 @@ export default async function FawryReferencePage({
         <p className="mt-6 text-sm text-zinc-500">كود الحجز: {code}</p>
 
         <Link
-          href={`/booking/${code}`}
+          href={`/${tutorSlug}/booking/${code}`}
           className="mt-6 inline-block font-medium text-blue-600 hover:underline"
         >
           متابعة حالة الحجز

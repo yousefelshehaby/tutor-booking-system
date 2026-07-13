@@ -7,7 +7,7 @@ import { Step1PersonalInfo } from "@/components/booking/Step1PersonalInfo";
 import { Step2Grade } from "@/components/booking/Step2Grade";
 import { Step3Group } from "@/components/booking/Step3Group";
 import { Step4Payment } from "@/components/booking/Step4Payment";
-import { submitBooking } from "@/app/(student)/book/actions";
+import { submitBooking } from "@/app/[tutorSlug]/book/actions";
 import { Button } from "@/components/ui/Button";
 import type { BookingFormData, PaymentMethod, PersonalInfo } from "@/types/booking";
 
@@ -32,7 +32,7 @@ function readStepFromUrl(raw: string | null): number {
   return parsed;
 }
 
-export function BookingWizard() {
+export function BookingWizard({ tutorId, tutorSlug }: { tutorId: string; tutorSlug: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const step = readStepFromUrl(searchParams.get("step"));
@@ -49,7 +49,7 @@ export function BookingWizard() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   function goToStep(next: number) {
-    router.push(`/book?step=${next}`, { scroll: false });
+    router.push(`/${tutorSlug}/book?step=${next}`, { scroll: false });
   }
 
   function handlePersonalInfoNext(value: PersonalInfo) {
@@ -71,7 +71,7 @@ export function BookingWizard() {
     setSubmitError(null);
     setSubmitting(true);
 
-    const result = await submitBooking({ ...formData, paymentMethod });
+    const result = await submitBooking({ ...formData, tutorId, paymentMethod });
 
     setSubmitting(false);
 
@@ -86,10 +86,10 @@ export function BookingWizard() {
       window.location.href = result.paymentUrl;
     } else if (result.nextAction === "fawry_reference") {
       router.push(
-        `/payment/fawry?code=${encodeURIComponent(result.bookingCode)}&ref=${encodeURIComponent(result.billReference)}`
+        `/${tutorSlug}/payment/fawry?code=${encodeURIComponent(result.bookingCode)}&ref=${encodeURIComponent(result.billReference)}`
       );
     } else {
-      router.push(`/booking/${result.bookingCode}`);
+      router.push(`/${tutorSlug}/booking/${result.bookingCode}`);
     }
   }
 
@@ -109,12 +109,18 @@ export function BookingWizard() {
       )}
 
       {step === 2 && (
-        <Step2Grade value={formData.gradeId} onNext={handleGradeNext} onBack={() => goToStep(1)} />
+        <Step2Grade
+          tutorId={tutorId}
+          value={formData.gradeId}
+          onNext={handleGradeNext}
+          onBack={() => goToStep(1)}
+        />
       )}
 
       {step === 3 && formData.gradeId && (
         <Step3Group
           key={formData.gradeId}
+          tutorId={tutorId}
           gradeId={formData.gradeId}
           value={formData.groupId}
           onNext={handleGroupNext}

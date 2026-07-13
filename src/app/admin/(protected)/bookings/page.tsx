@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
 import { BookingsTable, type AdminBooking } from "@/components/admin/BookingsTable";
 
@@ -82,12 +83,12 @@ export default async function AdminBookingsPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>
-        <a
+        <Link
           href="/api/admin/export"
           className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
         >
           تصدير إلى Excel
-        </a>
+        </Link>
       </div>
       <BookingsTable
         bookings={bookings}

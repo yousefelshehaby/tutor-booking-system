@@ -28,18 +28,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing transaction payload" }, { status: 400 });
   }
 
-  let isValid: boolean;
-  try {
-    isValid = verifyPaymobHmac(transaction as unknown as Record<string, unknown>, receivedHmac);
-  } catch (err) {
-    console.error("Paymob HMAC verification misconfigured", err);
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
-  }
-
-  if (!isValid) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-
   const merchantOrderId = transaction.order?.merchant_order_id;
   const paymobOrderId = transaction.order?.id;
 
@@ -50,6 +38,43 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
+  // Resolve which tutor this transaction belongs to (currently only
+  // bookings; monthly_payments will be added the same way) so we can verify
+  // the HMAC with THAT tutor's secret, not a global one.
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id, booking_code, tutor_id, payment_status")
+    .eq("booking_code", merchantOrderId)
+    .single();
+
+  if (bookingError || !booking) {
+    console.error("Paymob webhook: no booking matches merchant_order_id", { merchantOrderId });
+    return NextResponse.json({ received: true });
+  }
+
+  const { data: tutor, error: tutorError } = await supabase
+    .from("tutors")
+    .select("paymob_hmac_secret")
+    .eq("id", booking.tutor_id)
+    .single();
+
+  if (tutorError || !tutor?.paymob_hmac_secret) {
+    console.error("Paymob webhook: tutor has no HMAC secret configured", {
+      tutorId: booking.tutor_id,
+    });
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
+  const isValid = verifyPaymobHmac(
+    transaction as unknown as Record<string, unknown>,
+    receivedHmac,
+    tutor.paymob_hmac_secret
+  );
+
+  if (!isValid) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
   if (transaction.success === true) {
     const { error } = await supabase
       .from("bookings")
@@ -58,7 +83,7 @@ export async function POST(request: NextRequest) {
         paid_at: new Date().toISOString(),
         paymob_order_id: paymobOrderId ? String(paymobOrderId) : undefined,
       })
-      .eq("booking_code", merchantOrderId)
+      .eq("id", booking.id)
       .eq("payment_status", "pending");
 
     if (error) {

@@ -35,10 +35,11 @@ function getNestedValue(obj: unknown, path: string): unknown {
   }, obj);
 }
 
-export function verifyPaymobHmac(transaction: Record<string, unknown>, receivedHmac: string): boolean {
-  const secret = process.env.PAYMOB_HMAC_SECRET;
-  if (!secret) throw new Error("PAYMOB_HMAC_SECRET is not set");
-
+export function verifyPaymobHmac(
+  transaction: Record<string, unknown>,
+  receivedHmac: string,
+  secret: string
+): boolean {
   const concatenated = HMAC_FIELD_ORDER.map((field) => {
     const value = getNestedValue(transaction, field);
     return value === null || value === undefined ? "" : String(value);

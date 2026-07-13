@@ -32,6 +32,7 @@ export const paymentMethodSchema = z.enum(["card", "wallet", "fawry", "reserve_o
 
 export const bookingSubmitSchema = z
   .object({
+    tutorId: z.uuid(),
     studentName: nameSchema,
     studentPhone: phoneSchema,
     guardianPhone: phoneSchema,

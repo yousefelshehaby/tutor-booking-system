@@ -2,15 +2,16 @@ import "server-only";
 
 const PAYMOB_BASE_URL = "https://accept.paymob.com/api";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing environment variable: ${name}`);
-  return value;
+export interface TutorPaymobCredentials {
+  apiKey: string;
+  hmacSecret: string;
+  cardIntegrationId: string;
+  walletIntegrationId: string;
+  fawryIntegrationId: string;
+  iframeId: string;
 }
 
-export async function authenticate(): Promise<string> {
-  const apiKey = requireEnv("PAYMOB_API_KEY");
-
+export async function authenticate(apiKey: string): Promise<string> {
   const res = await fetch(`${PAYMOB_BASE_URL}/auth/tokens`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -73,7 +74,7 @@ export async function generatePaymentKey(params: {
   authToken: string;
   amountCents: number;
   orderId: number;
-  integrationId: number;
+  integrationId: string;
   billing: BillingInfo;
 }): Promise<string> {
   const res = await fetch(`${PAYMOB_BASE_URL}/acceptance/payment_keys`, {
@@ -86,7 +87,7 @@ export async function generatePaymentKey(params: {
       order_id: params.orderId,
       billing_data: buildBillingData(params.billing),
       currency: "EGP",
-      integration_id: params.integrationId,
+      integration_id: Number(params.integrationId),
     }),
   });
 
@@ -95,8 +96,7 @@ export async function generatePaymentKey(params: {
   return data.token;
 }
 
-export function buildIframeUrl(paymentToken: string): string {
-  const iframeId = requireEnv("PAYMOB_IFRAME_ID");
+export function buildIframeUrl(paymentToken: string, iframeId: string): string {
   return `${PAYMOB_BASE_URL}/acceptance/iframes/${iframeId}?payment_token=${paymentToken}`;
 }
 
@@ -138,12 +138,16 @@ export async function payWithFawry(params: {
   return { billReference: String(billReference) };
 }
 
-export function integrationIdFor(method: "card" | "wallet" | "fawry"): number {
-  const envVar = {
-    card: "PAYMOB_CARD_INTEGRATION_ID",
-    wallet: "PAYMOB_WALLET_INTEGRATION_ID",
-    fawry: "PAYMOB_FAWRY_INTEGRATION_ID",
+export function integrationIdFor(
+  method: "card" | "wallet" | "fawry",
+  credentials: TutorPaymobCredentials
+): string {
+  const id = {
+    card: credentials.cardIntegrationId,
+    wallet: credentials.walletIntegrationId,
+    fawry: credentials.fawryIntegrationId,
   }[method];
 
-  return Number(requireEnv(envVar));
+  if (!id) throw new Error(`Tutor has no ${method} Paymob integration configured`);
+  return id;
 }

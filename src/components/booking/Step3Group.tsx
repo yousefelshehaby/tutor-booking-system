@@ -2,26 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { getGroupsForGrade } from "@/app/(student)/book/actions";
+import { getGroupsForGrade } from "@/app/[tutorSlug]/book/actions";
 import type { GroupWithAvailability } from "@/types/booking";
 
 interface Props {
+  tutorId: string;
   gradeId: string;
   value: string | null;
   onNext: (groupId: string) => void;
   onBack: () => void;
 }
 
-export function Step3Group({ gradeId, value, onNext, onBack }: Props) {
+export function Step3Group({ tutorId, gradeId, value, onNext, onBack }: Props) {
   const [groups, setGroups] = useState<GroupWithAvailability[] | null>(null);
   const [selected, setSelected] = useState<string | null>(value);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    getGroupsForGrade(gradeId)
+    getGroupsForGrade(tutorId, gradeId)
       .then(setGroups)
       .catch((err: Error) => setLoadError(err.message));
-  }, [gradeId]);
+  }, [tutorId, gradeId]);
 
   return (
     <div className="flex flex-col gap-5" dir="rtl">

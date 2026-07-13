@@ -13,9 +13,9 @@ const STATUS_CLASSNAMES: Record<string, string> = {
 export default async function BookingDetailsPage({
   params,
 }: {
-  params: Promise<{ code: string }>;
+  params: Promise<{ tutorSlug: string; code: string }>;
 }) {
-  const { code } = await params;
+  const { tutorSlug, code } = await params;
   const booking = await getBookingByCode(code);
 
   if (!booking) {
@@ -23,7 +23,7 @@ export default async function BookingDetailsPage({
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-lg font-semibold text-zinc-900">لم يتم العثور على هذا الحجز</p>
         <p className="mt-2 text-zinc-600">من فضلك تأكد من كود الحجز وحاول مرة أخرى</p>
-        <Link href="/" className="mt-6 font-medium text-blue-600 hover:underline">
+        <Link href={`/${tutorSlug}`} className="mt-6 font-medium text-blue-600 hover:underline">
           العودة للصفحة الرئيسية
         </Link>
       </main>
@@ -71,7 +71,7 @@ export default async function BookingDetailsPage({
         {booking.payment_method !== "reserve_only" && booking.payment_status === "pending" && (
           <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
             <p className="text-sm text-blue-800">لم يتم إتمام الدفع بعد لهذا الحجز.</p>
-            <RetryPaymentButton bookingCode={booking.booking_code} />
+            <RetryPaymentButton tutorSlug={tutorSlug} bookingCode={booking.booking_code} />
           </div>
         )}
       </div>

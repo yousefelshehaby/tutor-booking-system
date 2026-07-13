@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminServerClient } from "@/lib/supabase/admin-server";
+import { getCurrentAdmin } from "@/lib/auth/current-admin";
 
 const gradeSchema = z.object({
   name: z.string().trim().min(1, "اسم الصف مطلوب"),
@@ -15,8 +16,11 @@ export async function createGrade(input: unknown) {
     return { error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
   }
 
+  const { tutorId } = await getCurrentAdmin();
+  if (!tutorId) return { error: "هذا الحساب غير مرتبط بمدرّس" };
+
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("grades").insert(parsed.data);
+  const { error } = await supabase.from("grades").insert({ ...parsed.data, tutor_id: tutorId });
   if (error) return { error: "تعذر إضافة الصف الدراسي" };
 
   revalidatePath("/admin/grades");

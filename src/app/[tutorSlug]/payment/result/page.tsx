@@ -8,10 +8,13 @@ import { RetryPaymentButton } from "@/components/booking/RetryPaymentButton";
 // — the authoritative payment_status always comes from our database, which
 // is only ever updated by the verified webhook, never by this page.
 export default async function PaymentResultPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ tutorSlug: string }>;
   searchParams: Promise<{ merchant_order_id?: string }>;
 }) {
+  const { tutorSlug } = await params;
   const { merchant_order_id: bookingCode } = await searchParams;
   const booking = bookingCode ? await getBookingByCode(bookingCode) : null;
 
@@ -19,7 +22,7 @@ export default async function PaymentResultPage({
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-zinc-600">تعذر العثور على تفاصيل هذه العملية</p>
-        <Link href="/" className="mt-4 font-medium text-blue-600 hover:underline">
+        <Link href={`/${tutorSlug}`} className="mt-4 font-medium text-blue-600 hover:underline">
           العودة للصفحة الرئيسية
         </Link>
       </main>
@@ -46,12 +49,12 @@ export default async function PaymentResultPage({
             <p className="mt-2 text-sm text-zinc-600">
               كود الحجز: {booking.booking_code} — يمكنك المحاولة مرة أخرى
             </p>
-            <RetryPaymentButton bookingCode={booking.booking_code} />
+            <RetryPaymentButton tutorSlug={tutorSlug} bookingCode={booking.booking_code} />
           </>
         )}
 
         <Link
-          href={`/booking/${booking.booking_code}`}
+          href={`/${tutorSlug}/booking/${booking.booking_code}`}
           className="mt-6 inline-block font-medium text-blue-600 hover:underline"
         >
           عرض تفاصيل الحجز

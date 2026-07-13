@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { retryPayment } from "@/lib/booking/retry-payment";
 
-export function RetryPaymentButton({ bookingCode }: { bookingCode: string }) {
+export function RetryPaymentButton({
+  tutorSlug,
+  bookingCode,
+}: {
+  tutorSlug: string;
+  bookingCode: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,7 @@ export function RetryPaymentButton({ bookingCode }: { bookingCode: string }) {
     }
 
     router.push(
-      `/payment/fawry?code=${encodeURIComponent(bookingCode)}&ref=${encodeURIComponent(result.billReference)}`
+      `/${tutorSlug}/payment/fawry?code=${encodeURIComponent(bookingCode)}&ref=${encodeURIComponent(result.billReference)}`
     );
   }
 

@@ -8,6 +8,7 @@ import {
   integrationIdFor,
   payWithFawry,
   payWithWallet,
+  type TutorPaymobCredentials,
 } from "@/lib/paymob/client";
 import type { PaymentMethod } from "@/types/booking";
 
@@ -21,11 +22,12 @@ export async function initiatePayment(params: {
   paymentMethod: Exclude<PaymentMethod, "reserve_only">;
   studentName: string;
   studentPhone: string;
+  credentials: TutorPaymobCredentials;
 }): Promise<InitiatePaymentResult> {
-  const { bookingCode, amount, paymentMethod, studentName, studentPhone } = params;
+  const { bookingCode, amount, paymentMethod, studentName, studentPhone, credentials } = params;
   const amountCents = Math.round(amount * 100);
 
-  const authToken = await authenticate();
+  const authToken = await authenticate(credentials.apiKey);
   const orderId = await createOrder({ authToken, amountCents, merchantOrderId: bookingCode });
 
   const supabase = createServiceClient();
@@ -34,7 +36,7 @@ export async function initiatePayment(params: {
     .update({ paymob_order_id: String(orderId) })
     .eq("booking_code", bookingCode);
 
-  const integrationId = integrationIdFor(paymentMethod);
+  const integrationId = integrationIdFor(paymentMethod, credentials);
   const paymentToken = await generatePaymentKey({
     authToken,
     amountCents,
@@ -44,7 +46,7 @@ export async function initiatePayment(params: {
   });
 
   if (paymentMethod === "card") {
-    return { type: "redirect", url: buildIframeUrl(paymentToken) };
+    return { type: "redirect", url: buildIframeUrl(paymentToken, credentials.iframeId) };
   }
 
   if (paymentMethod === "wallet") {

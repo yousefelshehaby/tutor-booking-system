@@ -2,14 +2,16 @@
 
 import { createAnonServerClient } from "@/lib/supabase/server";
 import { initiatePayment } from "@/lib/paymob/initiate-payment";
+import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
 import { bookingSubmitSchema } from "@/lib/validation/booking";
 import type { Grade, GroupWithAvailability } from "@/types/booking";
 
-export async function getActiveGrades(): Promise<Grade[]> {
+export async function getActiveGrades(tutorId: string): Promise<Grade[]> {
   const supabase = createAnonServerClient();
   const { data, error } = await supabase
     .from("grades")
     .select("id, name, display_order, is_active")
+    .eq("tutor_id", tutorId)
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
@@ -20,9 +22,13 @@ export async function getActiveGrades(): Promise<Grade[]> {
   return data ?? [];
 }
 
-export async function getGroupsForGrade(gradeId: string): Promise<GroupWithAvailability[]> {
+export async function getGroupsForGrade(
+  tutorId: string,
+  gradeId: string
+): Promise<GroupWithAvailability[]> {
   const supabase = createAnonServerClient();
   const { data, error } = await supabase.rpc("get_groups_with_availability", {
+    p_tutor_id: tutorId,
     p_grade_id: gradeId,
   });
 
@@ -40,6 +46,7 @@ export type SubmitBookingResult =
   | { success: false; error: string };
 
 const RPC_ERROR_MESSAGES: Record<string, string> = {
+  TUTOR_NOT_FOUND: "حدث خطأ، من فضلك أعد تحميل الصفحة",
   GROUP_NOT_FOUND: "المجموعة التي اخترتها لم تعد متاحة، من فضلك اختر مجموعة أخرى",
   GROUP_GRADE_MISMATCH: "حدث خطأ في اختيار المجموعة، من فضلك ابدأ الحجز من جديد",
   GRADE_NOT_FOUND: "الصف الدراسي الذي اخترته لم يعد متاحًا، من فضلك ابدأ الحجز من جديد",
@@ -54,12 +61,13 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
     return { success: false, error: firstIssue?.message ?? "البيانات المدخلة غير صحيحة" };
   }
 
-  const { studentName, studentPhone, guardianPhone, gradeId, groupId, paymentMethod } =
+  const { tutorId, studentName, studentPhone, guardianPhone, gradeId, groupId, paymentMethod } =
     parsed.data;
 
   const supabase = createAnonServerClient();
   const { data, error } = await supabase
     .rpc("create_booking", {
+      p_tutor_id: tutorId,
       p_student_name: studentName,
       p_student_phone: studentPhone,
       p_guardian_phone: guardianPhone,
@@ -67,7 +75,13 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
       p_group_id: groupId,
       p_payment_method: paymentMethod,
     })
-    .single<{ id: string; booking_code: string; amount: number; expires_at: string | null }>();
+    .single<{
+      id: string;
+      booking_code: string;
+      amount: number;
+      expires_at: string | null;
+      tutor_id: string;
+    }>();
 
   if (error || !data) {
     const message = error ? RPC_ERROR_MESSAGES[error.message] : undefined;
@@ -79,12 +93,18 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
   }
 
   try {
+    const credentials = await getTutorPaymobCredentials(data.tutor_id);
+    if (!credentials) {
+      throw new Error("Tutor has no Paymob credentials configured");
+    }
+
     const result = await initiatePayment({
       bookingCode: data.booking_code,
       amount: data.amount,
       paymentMethod,
       studentName,
       studentPhone,
+      credentials,
     });
 
     if (result.type === "redirect") {
