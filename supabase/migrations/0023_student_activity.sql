@@ -61,7 +61,11 @@ language sql
 security definer
 set search_path = public, pg_temp
 as $$
-  select 'booking_created', b.created_at, t.name, gp.name
+  select
+    'booking_created' as event_type,
+    b.created_at as event_date,
+    t.name as tutor_name,
+    gp.name as description
   from bookings b
   join tutors t on t.id = b.tutor_id and t.is_active = true
   join groups gp on gp.id = b.group_id
