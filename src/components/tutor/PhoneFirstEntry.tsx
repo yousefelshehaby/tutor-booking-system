@@ -27,6 +27,10 @@ function hoursRemaining(expiresAt: string): number {
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 3_600_000));
 }
 
+function navigateTo(url: string) {
+  window.location.href = url;
+}
+
 export function PhoneFirstEntry({
   tutorId,
   tutorSlug,
@@ -87,16 +91,15 @@ export function PhoneFirstEntry({
     setPaySubmitting(true);
     setPayError(null);
 
-    const result =
-      reservation.payment_method === "reserve_only"
-        ? await payExistingReservation({
-            tutorId,
-            bookingCode: reservation.booking_code,
-            paymentMethod,
-            studentName: reservation.student_name,
-            studentPhone: phone,
-          })
-        : await retryPayment(reservation.booking_code);
+    const result = reservation.payment_method === "reserve_only"
+      ? await payExistingReservation({
+          tutorId,
+          bookingCode: reservation.booking_code,
+          paymentMethod,
+          studentName: reservation.student_name,
+          studentPhone: phone,
+        })
+      : await retryPayment(reservation.booking_code);
 
     setPaySubmitting(false);
 
@@ -105,12 +108,12 @@ export function PhoneFirstEntry({
       return;
     }
 
-    if (result.type === "redirect") {
-      window.location.href = result.url;
-      return;
-    }
+    const destination =
+      result.type === "redirect"
+        ? result.url
+        : `/${tutorSlug}/payment/fawry?code=${encodeURIComponent(reservation.booking_code)}&ref=${encodeURIComponent(result.billReference)}`;
 
-    window.location.href = `/${tutorSlug}/payment/fawry?code=${encodeURIComponent(reservation.booking_code)}&ref=${encodeURIComponent(result.billReference)}`;
+    navigateTo(destination);
   }
 
   if (step === "phone") {
@@ -222,10 +225,14 @@ export function PhoneFirstEntry({
     );
   }
 
-  // step === "pay"
-  if (!monthlyPaymentOpen) {
-    return <p className="text-center text-zinc-500">الدفع الشهري غير متاح حاليًا</p>;
-  }
-
-  return <MonthlyFlow tutorId={tutorId} tutorSlug={tutorSlug} initialBookings={bookings} />;
+  // step === "pay" — the statement is always viewable; MonthlyFlow itself
+  // hides only the "ادفع" buttons when monthlyPaymentOpen is false.
+  return (
+    <MonthlyFlow
+      tutorId={tutorId}
+      tutorSlug={tutorSlug}
+      initialBookings={bookings}
+      monthlyPaymentOpen={monthlyPaymentOpen}
+    />
+  );
 }

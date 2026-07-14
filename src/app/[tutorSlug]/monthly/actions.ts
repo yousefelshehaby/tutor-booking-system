@@ -7,7 +7,7 @@ import { initiatePayment } from "@/lib/paymob/initiate-payment";
 import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
 import { phoneSchema } from "@/lib/validation/booking";
 import type { PaymentMethod } from "@/types/booking";
-import type { EligibleBooking, MonthlyPaymentStatus } from "@/types/monthly";
+import type { AccountStatementHeader, EligibleBooking, MonthlyPaymentStatus } from "@/types/monthly";
 
 const lookupSchema = z
   .object({
@@ -66,6 +66,21 @@ export async function getMonthlyStatus(bookingId: string): Promise<MonthlyPaymen
   }
 
   return (data ?? []) as MonthlyPaymentStatus[];
+}
+
+export async function getAccountStatementHeader(
+  bookingId: string
+): Promise<AccountStatementHeader | null> {
+  const supabase = createAnonServerClient();
+  const { data, error } = await supabase
+    .rpc("get_account_statement_header", { p_booking_id: bookingId })
+    .single<AccountStatementHeader>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
 }
 
 export type PayMonthResult =
