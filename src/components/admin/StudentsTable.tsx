@@ -2,7 +2,13 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { markBookingPaid, cancelBooking } from "@/app/admin/(protected)/bookings/actions";
+import Link from "next/link";
+import {
+  markBookingPaid,
+  cancelBooking,
+  archiveBooking,
+  restoreBooking,
+} from "@/app/admin/(protected)/bookings/actions";
 import { getMonthlyStripForBooking, type MonthlyStripItem } from "@/app/admin/(protected)/students/actions";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 import { StudentNotes } from "@/components/admin/StudentNotes";
@@ -25,6 +31,9 @@ export interface AdminStudent {
   group_time: string;
   tutor_id: string;
   tutor_name: string;
+  archived_at: string | null;
+  archived_by_name: string | null;
+  previousArchivedBooking: { booking_code: string; archived_at: string } | null;
 }
 
 interface GradeOption {
@@ -66,6 +75,7 @@ export function StudentsTable({
   filters,
   isSuperAdmin,
   readOnly = false,
+  archivedMode = false,
 }: {
   students: AdminStudent[];
   grades: GradeOption[];
@@ -77,6 +87,7 @@ export function StudentsTable({
   filters: Filters;
   isSuperAdmin: boolean;
   readOnly?: boolean;
+  archivedMode?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState(filters.q);
@@ -91,6 +102,7 @@ export function StudentsTable({
       status: filters.status,
       q: filters.q,
       page: "1",
+      ...(archivedMode ? { archived: "1" } : {}),
       ...next,
     });
 
@@ -113,10 +125,52 @@ export function StudentsTable({
     router.refresh();
   }
 
+  async function handleArchive(id: string) {
+    if (
+      !confirm(
+        "تأكيد حذف هذا الطالب؟ سيختفي من كل القوائم، لكن هيتم الاحتفاظ بسجله بالكامل (المدفوعات والملاحظات) ويقدر يتم استعادته لاحقًا."
+      )
+    )
+      return;
+    await archiveBooking(id);
+    router.refresh();
+  }
+
+  async function handleRestore(id: string) {
+    if (!confirm("تأكيد استعادة هذا الطالب؟")) return;
+    const result = await restoreBooking(id);
+    if ("error" in result) {
+      alert(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
   const filteredGroups = filters.grade ? groups.filter((g) => g.grade_id === filters.grade) : groups;
 
   return (
     <div className="flex flex-col gap-4" dir="rtl">
+      {!readOnly && (
+        <div className="flex gap-2">
+          <Link
+            href="/admin/students"
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+              !archivedMode ? "bg-blue-600 text-white" : "bg-white text-zinc-600 hover:bg-zinc-100"
+            }`}
+          >
+            الطلاب
+          </Link>
+          <Link
+            href="/admin/students?archived=1"
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+              archivedMode ? "bg-blue-600 text-white" : "bg-white text-zinc-600 hover:bg-zinc-100"
+            }`}
+          >
+            الأرشيف
+          </Link>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4">
         {isSuperAdmin && (
           <div>
@@ -168,20 +222,22 @@ export function StudentsTable({
           </select>
         </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-700">حالة الدفع</label>
-          <select
-            value={filters.status}
-            onChange={(e) => updateParams({ status: e.target.value })}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          >
-            <option value="">الكل</option>
-            <option value="pending">في انتظار الدفع</option>
-            <option value="paid">تم الدفع</option>
-            <option value="expired">انتهى</option>
-            <option value="cancelled">ملغي</option>
-          </select>
-        </div>
+        {!archivedMode && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">حالة الدفع</label>
+            <select
+              value={filters.status}
+              onChange={(e) => updateParams({ status: e.target.value })}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="">الكل</option>
+              <option value="pending">في انتظار الدفع</option>
+              <option value="paid">تم الدفع</option>
+              <option value="expired">انتهى</option>
+              <option value="cancelled">ملغي</option>
+            </select>
+          </div>
+        )}
 
         <div className="flex-1 min-w-[200px]">
           <label className="mb-1 block text-sm font-medium text-zinc-700">بحث</label>
@@ -210,14 +266,17 @@ export function StudentsTable({
             onToggle={() => setExpandedId(expandedId === student.id ? null : student.id)}
             isSuperAdmin={isSuperAdmin}
             readOnly={readOnly}
+            archivedMode={archivedMode}
             onMarkPaid={() => handleMarkPaid(student.id)}
             onCancel={() => handleCancel(student.id)}
+            onArchive={() => handleArchive(student.id)}
+            onRestore={() => handleRestore(student.id)}
           />
         ))}
 
         {students.length === 0 && (
           <div className="rounded-xl border border-zinc-200 bg-white p-6 text-center text-zinc-500">
-            لا يوجد طلاب مطابقون
+            {archivedMode ? "لا يوجد طلاب محذوفون" : "لا يوجد طلاب مطابقون"}
           </div>
         )}
       </div>
@@ -247,16 +306,22 @@ function StudentRow({
   onToggle,
   isSuperAdmin,
   readOnly,
+  archivedMode,
   onMarkPaid,
   onCancel,
+  onArchive,
+  onRestore,
 }: {
   student: AdminStudent;
   isExpanded: boolean;
   onToggle: () => void;
   isSuperAdmin: boolean;
   readOnly: boolean;
+  archivedMode: boolean;
   onMarkPaid: () => void;
   onCancel: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
 }) {
   const [strip, setStrip] = useState<MonthlyStripItem[] | null>(null);
 
@@ -272,7 +337,18 @@ function StudentRow({
       <div className="rounded-xl border border-zinc-200 bg-white p-4">
         <button type="button" onClick={handleToggle} className="flex w-full items-center justify-between text-right">
           <div>
-            <p className="font-semibold text-zinc-900">{student.student_name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-zinc-900">{student.student_name}</p>
+              {!archivedMode && student.previousArchivedBooking && (
+                <Link
+                  href={`/admin/students?archived=1&q=${encodeURIComponent(student.previousArchivedBooking.booking_code)}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700 hover:underline"
+                >
+                  طالب سابق
+                </Link>
+              )}
+            </div>
             <p className="mt-1 text-xs text-zinc-500" dir="ltr">
               {student.student_phone}
             </p>
@@ -281,11 +357,27 @@ function StudentRow({
               {isSuperAdmin && ` — ${student.tutor_name}`}
             </p>
           </div>
-          <span
-            className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${STATUS_CLASSNAMES[student.payment_status]}`}
-          >
-            {PAYMENT_STATUS_LABELS[student.payment_status]}
-          </span>
+          {archivedMode ? (
+            <span className="shrink-0 text-left text-xs text-zinc-500">
+              {student.archived_at && (
+                <>
+                  حُذف بتاريخ {new Date(student.archived_at).toLocaleDateString("ar-EG")}
+                  {student.archived_by_name && (
+                    <>
+                      <br />
+                      بواسطة {student.archived_by_name}
+                    </>
+                  )}
+                </>
+              )}
+            </span>
+          ) : (
+            <span
+              className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${STATUS_CLASSNAMES[student.payment_status]}`}
+            >
+              {PAYMENT_STATUS_LABELS[student.payment_status]}
+            </span>
+          )}
         </button>
 
         {isExpanded && (
@@ -321,14 +413,29 @@ function StudentRow({
               </div>
             )}
 
-            {!readOnly && (student.payment_status === "pending" || student.payment_status === "expired") && (
-              <div className="flex gap-3">
-                <button onClick={onMarkPaid} className="font-medium text-green-700 hover:underline">
-                  تحديد كمدفوع
-                </button>
-                <button onClick={onCancel} className="font-medium text-red-600 hover:underline">
-                  إلغاء الحجز
-                </button>
+            {!readOnly && (
+              <div className="flex flex-wrap gap-3">
+                {archivedMode ? (
+                  <button onClick={onRestore} className="font-medium text-blue-600 hover:underline">
+                    استعادة
+                  </button>
+                ) : (
+                  <>
+                    {(student.payment_status === "pending" || student.payment_status === "expired") && (
+                      <>
+                        <button onClick={onMarkPaid} className="font-medium text-green-700 hover:underline">
+                          تحديد كمدفوع
+                        </button>
+                        <button onClick={onCancel} className="font-medium text-red-600 hover:underline">
+                          إلغاء الحجز
+                        </button>
+                      </>
+                    )}
+                    <button onClick={onArchive} className="font-medium text-red-600 hover:underline">
+                      حذف الطالب
+                    </button>
+                  </>
+                )}
               </div>
             )}
 

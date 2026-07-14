@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
     .from("bookings")
     .select(
       "booking_code, student_name, student_phone, guardian_phone, payment_method, payment_status, amount, created_at, group_id, tutors(name)"
-    );
+    )
+    .is("archived_at", null);
 
   if (tutorFilter) {
     gradesQuery = gradesQuery.eq("tutor_id", tutorFilter);

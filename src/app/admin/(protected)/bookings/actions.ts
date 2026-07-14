@@ -28,6 +28,46 @@ export async function cancelBooking(id: string) {
   return { success: true };
 }
 
+export async function archiveBooking(id: string): Promise<{ error: string } | { success: true }> {
+  const supabase = await createAdminServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "الجلسة منتهية" };
+
+  const { error } = await supabase
+    .from("bookings")
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
+    .eq("id", id)
+    .is("archived_at", null);
+
+  if (error) return { error: "تعذر حذف الطالب" };
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/students");
+  return { success: true };
+}
+
+const RESTORE_ERROR_MESSAGES: Record<string, string> = {
+  GROUP_FULL: "لا يمكن الاستعادة، المجموعة مكتملة العدد حاليًا",
+  NOT_ARCHIVED: "هذا الطالب غير محذوف أصلًا",
+  BOOKING_NOT_FOUND: "تعذر العثور على الحجز",
+  NOT_AUTHORIZED: "غير مصرح لك بهذا الإجراء",
+};
+
+export async function restoreBooking(id: string): Promise<{ error: string } | { success: true }> {
+  const supabase = await createAdminServerClient();
+  const { error } = await supabase.rpc("restore_booking", { p_booking_id: id });
+
+  if (error) {
+    return { error: RESTORE_ERROR_MESSAGES[error.message] ?? "تعذر استعادة الطالب" };
+  }
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/students");
+  return { success: true };
+}
+
 export interface StudentNote {
   id: string;
   note: string;

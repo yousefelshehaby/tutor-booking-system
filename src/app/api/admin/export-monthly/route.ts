@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
   let bookingsQuery = supabase
     .from("bookings")
     .select("id, booking_code, student_name, grade_id, group_id, created_at, tutors(name)")
-    .eq("payment_status", "paid");
+    .eq("payment_status", "paid")
+    .is("archived_at", null);
 
   if (tutorFilter) {
     gradesQuery = gradesQuery.eq("tutor_id", tutorFilter);

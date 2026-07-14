@@ -26,16 +26,22 @@ export default async function AdminDashboardPage() {
     { data: settings },
     { data: tutor },
   ] = await Promise.all([
-    supabase.from("bookings").select("*", { count: "exact", head: true }).eq("payment_status", "paid"),
     supabase
       .from("bookings")
       .select("*", { count: "exact", head: true })
-      .eq("payment_status", "pending"),
-    supabase.from("bookings").select("amount").eq("payment_status", "paid"),
+      .eq("payment_status", "paid")
+      .is("archived_at", null),
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("payment_status", "pending")
+      .is("archived_at", null),
+    supabase.from("bookings").select("amount").eq("payment_status", "paid").is("archived_at", null),
     supabase
       .from("bookings")
       .select("group_id, payment_status, groups(name)")
-      .in("payment_status", ["paid", "pending"]),
+      .in("payment_status", ["paid", "pending"])
+      .is("archived_at", null),
     tutorId
       ? supabase.from("settings").select("current_month").eq("tutor_id", tutorId).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -58,8 +64,9 @@ export default async function AdminDashboardPage() {
   if (currentMonth) {
     const { data: monthlyRows } = await supabase
       .from("monthly_payments")
-      .select("amount, payment_status")
-      .eq("month", currentMonth);
+      .select("amount, payment_status, bookings!inner(archived_at)")
+      .eq("month", currentMonth)
+      .is("bookings.archived_at", null);
     for (const row of monthlyRows ?? []) {
       if (row.payment_status === "paid") {
         monthlyCollected += Number(row.amount);
