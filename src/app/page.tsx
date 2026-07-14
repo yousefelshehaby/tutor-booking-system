@@ -24,6 +24,11 @@ export default async function RootPage() {
 
   return (
     <div className="flex flex-1 flex-col">
+      <div className="flex justify-end px-6 pt-4" dir="rtl">
+        <Link href="/my-account" className="text-sm font-medium text-blue-600 hover:underline">
+          حسابي
+        </Link>
+      </div>
       <main className="flex flex-1 flex-col items-center px-6 py-16" dir="rtl">
         <div className="w-full max-w-md text-center">
           <h1 className="text-3xl font-bold text-zinc-900">اختر مدرّسك</h1>

@@ -47,15 +47,23 @@ interface Props {
   initialBookings?: EligibleBooking[];
   /** Statement is always viewable; this only controls whether "ادفع" buttons show. */
   monthlyPaymentOpen: boolean;
+  /** Pre-fills the phone lookup (e.g. arriving from /my-account) — student still confirms with "بحث". */
+  initialPhone?: string;
 }
 
-export function MonthlyFlow({ tutorId, tutorSlug, initialBookings, monthlyPaymentOpen }: Props) {
+export function MonthlyFlow({
+  tutorId,
+  tutorSlug,
+  initialBookings,
+  monthlyPaymentOpen,
+  initialPhone,
+}: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(
     initialBookings && initialBookings.length > 0 ? "select" : "lookup"
   );
-  const [lookupMode, setLookupMode] = useState<"code" | "phone">("code");
-  const [lookupValue, setLookupValue] = useState("");
+  const [lookupMode, setLookupMode] = useState<"code" | "phone">(initialPhone ? "phone" : "code");
+  const [lookupValue, setLookupValue] = useState(initialPhone ?? "");
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
 

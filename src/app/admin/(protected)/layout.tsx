@@ -7,6 +7,7 @@ import { TaTutorSwitcher } from "@/components/admin/TaTutorSwitcher";
 
 const FULL_NAV_LINKS = [
   { href: "/admin/dashboard", label: "لوحة القيادة" },
+  { href: "/admin/students", label: "طلابي" },
   { href: "/admin/grades", label: "الصفوف الدراسية" },
   { href: "/admin/groups", label: "المجموعات" },
   { href: "/admin/bookings", label: "الحجوزات" },
@@ -15,7 +16,10 @@ const FULL_NAV_LINKS = [
   { href: "/admin/tas", label: "المساعدون" },
 ];
 
-const TA_NAV_LINKS = [{ href: "/admin/bookings", label: "الحجوزات" }];
+const TA_NAV_LINKS = [
+  { href: "/admin/students", label: "طلابي" },
+  { href: "/admin/bookings", label: "الحجوزات" },
+];
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const { id, role, isSuperAdmin, isTa, tutorId } = await getCurrentAdmin();

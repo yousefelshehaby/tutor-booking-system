@@ -13,6 +13,7 @@ export async function markBookingPaid(id: string) {
   if (error) return { error: "تعذر تحديث حالة الحجز" };
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/students");
   return { success: true };
 }
 
@@ -23,6 +24,7 @@ export async function cancelBooking(id: string) {
   if (error) return { error: "تعذر إلغاء الحجز" };
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/students");
   return { success: true };
 }
 
@@ -67,5 +69,6 @@ export async function addStudentNote(tutorId: string, bookingId: string, note: s
   if (error) return { error: "تعذر إضافة الملاحظة" };
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/students");
   return { success: true };
 }

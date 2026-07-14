@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { getCurrentAdmin } from "@/lib/auth/current-admin";
-import { BookingsTable } from "@/components/admin/BookingsTable";
+import { StudentsTable } from "@/components/admin/StudentsTable";
 import { DashboardGreeting } from "@/components/admin/DashboardGreeting";
 import { fetchAdminBookings } from "@/lib/admin/fetch-bookings";
 
 const PAGE_SIZE = 20;
 
-export default async function AdminBookingsPage({
+export default async function AdminStudentsPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -30,18 +29,10 @@ export default async function AdminBookingsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      {isTa && name && <DashboardGreeting greeting={`أهلاً بيك ${name}`} subtitle="الحجوزات" />}
-      <div className="flex items-center justify-between">
-        {!(isTa && name) && <h1 className="text-2xl font-bold text-zinc-900">الحجوزات</h1>}
-        <Link
-          href={`/api/admin/export${params.tutor ? `?tutor=${params.tutor}` : ""}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
-        >
-          تصدير إلى Excel
-        </Link>
-      </div>
-      <BookingsTable
-        bookings={bookings}
+      {isTa && name && <DashboardGreeting greeting={`أهلاً بيك ${name}`} subtitle="طلابي" />}
+      {!(isTa && name) && <h1 className="text-2xl font-bold text-zinc-900">طلابي</h1>}
+      <StudentsTable
+        students={bookings}
         grades={gradeOptions}
         groups={groupOptions}
         tutors={tutors}
