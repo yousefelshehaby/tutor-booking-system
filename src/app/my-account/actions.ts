@@ -3,6 +3,8 @@
 import { createAnonServerClient } from "@/lib/supabase/server";
 import { phoneSchema } from "@/lib/validation/booking";
 import { formatMonth } from "@/lib/utils/format-month";
+import { checkLookupRateLimit } from "@/lib/rate-limit/check";
+import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
 
 export interface StudentTutorBooking {
   booking_id: string;
@@ -58,6 +60,11 @@ export async function getStudentActivity(phone: string): Promise<StudentActivity
   const parsed = phoneSchema.safeParse(phone);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "رقم الهاتف غير صحيح" };
+  }
+
+  const allowed = await checkLookupRateLimit("myaccount", parsed.data);
+  if (!allowed) {
+    return { success: false, error: RATE_LIMIT_MESSAGE };
   }
 
   const supabase = createAnonServerClient();

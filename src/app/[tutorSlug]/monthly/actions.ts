@@ -6,6 +6,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { initiatePayment } from "@/lib/paymob/initiate-payment";
 import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
 import { phoneSchema } from "@/lib/validation/booking";
+import { checkLookupRateLimit } from "@/lib/rate-limit/check";
+import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
 import type { PaymentMethod } from "@/types/booking";
 import type { AccountStatementHeader, EligibleBooking, MonthlyPaymentStatus } from "@/types/monthly";
 
@@ -31,6 +33,11 @@ export async function findEligibleBookings(input: unknown): Promise<FindBookings
   const parsed = lookupSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "بيانات غير صحيحة" };
+  }
+
+  const allowed = await checkLookupRateLimit("lookup", parsed.data.phone);
+  if (!allowed) {
+    return { success: false, error: RATE_LIMIT_MESSAGE };
   }
 
   const supabase = createAnonServerClient();

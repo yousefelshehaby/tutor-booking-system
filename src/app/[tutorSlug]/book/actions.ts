@@ -5,6 +5,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { initiatePayment } from "@/lib/paymob/initiate-payment";
 import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
 import { bookingSubmitSchema } from "@/lib/validation/booking";
+import { checkBookingRateLimit } from "@/lib/rate-limit/check";
+import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
 import type { Grade, GroupWithAvailability } from "@/types/booking";
 
 export async function getActiveGrades(tutorId: string): Promise<Grade[]> {
@@ -64,6 +66,11 @@ export async function submitBooking(input: unknown): Promise<SubmitBookingResult
 
   const { tutorId, studentName, studentPhone, guardianPhone, gradeId, groupId, paymentMethod } =
     parsed.data;
+
+  const allowed = await checkBookingRateLimit(studentPhone);
+  if (!allowed) {
+    return { success: false, error: RATE_LIMIT_MESSAGE };
+  }
 
   const supabase = createAnonServerClient();
   const { data, error } = await supabase

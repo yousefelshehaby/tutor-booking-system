@@ -36,11 +36,11 @@ A multi-tenant web platform for private tutors in Egypt to run their own student
 
 ### How migrations are applied
 
-There is no Supabase CLI or direct Postgres connection available in the development environment this project was built in. Every one of the 24 migration files under `supabase/migrations/` was applied manually by pasting its SQL into the Supabase Dashboard's **SQL Editor**, in order, after each was written. This is also the documented process in `README.md` for anyone continuing the project. `scripts/reset-all-data.sql` is a separate, manually-triggered script (also run via SQL Editor) for wiping all tutors/students/TAs before a real handover, keeping only the super admin account.
+There is no Supabase CLI or direct Postgres connection available in the development environment this project was built in. Every one of the 25 migration files under `supabase/migrations/` was applied manually by pasting its SQL into the Supabase Dashboard's **SQL Editor**, in order, after each was written. This is also the documented process in `README.md` for anyone continuing the project. `scripts/reset-all-data.sql` is a separate, manually-triggered script (also run via SQL Editor) for wiping all tutors/students/TAs before a real handover, keeping only the super admin account.
 
 ### Current live data snapshot (at time of writing)
 
-- 2 tutors: `mr-yousef` (active, Paymob card/wallet/Fawry/iframe IDs configured) and `me-abdalla` (inactive, no Paymob credentials yet)
+- 2 tutors: `mr-yousef` (active, Paymob card/wallet/Fawry/iframe IDs configured) and "مستر عبد الله الكومي (حساب تجريبي - Demo)" — explicitly renamed to mark it as demo-only rather than fabricate Paymob credentials for it; kept deactivated, so it's also invisible on the public directory
 - 6 admin accounts: 1 super admin, 2 tutors, 3 TAs
 
 ---
@@ -174,7 +174,7 @@ Present for tutors/super admins. Two kinds of notifications share one generalize
 
 ## 5. Database
 
-### Tables (11, confirmed live via the Supabase REST schema)
+### Tables (12, confirmed live via the Supabase REST schema)
 
 | Table | Purpose | Key columns |
 |---|---|---|
@@ -189,11 +189,12 @@ Present for tutors/super admins. Two kinds of notifications share one generalize
 | `notifications` | Generalized bell notifications | `type` (`student_note` / `ta_request_submitted` / `ta_request_resolved`), `recipient_admin_id`, `message`, booking-specific columns (nullable, used only for the student_note type) |
 | `ta_requests` | Tutor's formal request queue for a new assistant | `status` (`pending`/`approved`/`rejected`), `admin_note`, `resolved_at` |
 | `ta_tutor_links` | Junction table: which tutors a TA may switch between | `ta_id`, `tutor_id` |
+| `rate_limit_hits` | Fixed-window rate-limit counter, written/read only through `check_rate_limit()` | `bucket_key`, `created_at` |
 
-### RPC functions (22, confirmed live)
+### RPC functions (23, confirmed live)
 
 **Public/anon-facing (all `SECURITY DEFINER`, since anon has no direct table access to `bookings`):**
-`create_booking`, `get_groups_with_availability`, `get_booking_by_code`, `get_tutor_by_slug`, `list_active_tutors`, `find_eligible_bookings`, `find_active_reservation`, `start_reservation_payment`, `pay_monthly_fee`, `get_monthly_payment_status`, `get_monthly_payment_by_id`, `get_account_statement_header`, `find_student_bookings_across_tutors`, `get_student_recent_activity`, `expire_stale_reservations`, `generate_booking_code`
+`create_booking`, `get_groups_with_availability`, `get_booking_by_code`, `get_tutor_by_slug`, `list_active_tutors`, `find_eligible_bookings`, `find_active_reservation`, `start_reservation_payment`, `pay_monthly_fee`, `get_monthly_payment_status`, `get_monthly_payment_by_id`, `get_account_statement_header`, `find_student_bookings_across_tutors`, `get_student_recent_activity`, `expire_stale_reservations`, `generate_booking_code`, `check_rate_limit`
 
 **Admin-facing:**
 `get_monthly_payment_matrix` (runs with caller's own RLS-scoped privileges, not SECURITY DEFINER — a tutor/TA naturally sees only their own rows), `create_student_note` (fans out notifications atomically), `restore_booking` (capacity-checked un-archive, role-checked internally), `ta_can_switch_to_tutor`, `admin_has_tutor_access`, `is_tutor_active`
@@ -264,18 +265,18 @@ Same shape, but `merchant_order_id` is `"MP-" + monthly_payments.id` instead of 
 - **Input validation**: every server action validates its input with a Zod schema before touching the database (phone number format, name word-count, email format, password length, etc.) — defense in depth alongside RLS/DB constraints.
 - **Concurrency-safe seat counting**: `create_booking` and `restore_booking` both `SELECT ... FOR UPDATE` the group row before counting active bookings, so two simultaneous requests for the last seat can never both succeed.
 - **Verified empirically, not assumed**: RLS/permission boundaries throughout this project were checked via direct signed REST calls as each role (tutor, TA, super admin) attempting both allowed and forbidden operations — not just "the UI hides the button."
+- **Rate limiting on public endpoints**: phone-lookup actions (`findEligibleBookings`, `findActiveReservation`, `getStudentActivity` for "حسابي") and booking creation (`submitBooking`) are all rate-limited per-IP AND per-phone via a Postgres-backed fixed-window counter (`check_rate_limit()` RPC + `rate_limit_hits` table, migration `0025`) — deliberately not an in-memory counter, since that would be unreliable across Vercel's serverless function invocations (each can land on a different, short-lived instance with its own fresh memory). Lookups allow 8 attempts/minute per IP and per phone; booking creation allows 5/5 minutes. Exceeding either returns a clear Arabic message ("محاولات كتير في وقت قصير، من فضلك حاول مرة أخرى بعد قليل") instead of a generic error, and the check fails OPEN (allows the request) if the rate-limit check itself errors, so a database hiccup never blocks a real student. No external/paid service involved — reuses the existing Supabase database, free tier.
 
 ---
 
 ## 9. Pending / Known Limitations
 
 - **Paymob account still in Sandbox/Test mode** — wallet and Fawry payments do not currently work in real testing (see Section 6). Needs either official Paymob test credentials for those two methods, or completing Paymob's business verification to flip the account to Live.
-- **Second tutor (`me-abdalla`) has no Paymob credentials configured** and is currently deactivated — presumably mid-onboarding.
-- **No automated test suite** — correctness has been verified throughout development via live database checks and manual UI walkthroughs, not unit/integration tests.
+- **Second tutor is explicitly marked demo-only** — renamed to "مستر عبد الله الكومي (حساب تجريبي - Demo)" rather than fabricate Paymob credentials for it; kept deactivated (also invisible on the public directory as a result).
+- **No automated test suite** — correctness has been verified throughout development via live database checks and manual UI walkthroughs, not unit/integration tests. This is a known, deliberately deferred gap — worth adding before the codebase changes hands or grows much further, but out of scope for the current round of work.
 - **No WhatsApp integration is built** — links intended for WhatsApp sharing (e.g. a tutor sending a student their statement link) are plain URLs; there's no automated WhatsApp message sending anywhere in the system.
 - **`scripts/reset-all-data.sql`** exists for a full pre-handover wipe but has not been run since the current round of feature development — running it is a deliberate, manual, confirmed-in-advance action, not something automatic.
-- **README.md is stale** — it still documents an older Paymob-credentials-via-environment-variables setup, superseded by the per-tutor database-stored credentials design; it has not been rewritten to match current state.
-- **No rate limiting / CAPTCHA** on the public booking or phone-lookup endpoints.
+- **No CAPTCHA** on the public booking or phone-lookup endpoints — rate limiting (see Section 8) covers the automated-abuse case, but a determined attacker rotating IPs could still stay under the per-IP threshold; not addressed since it needs a third-party CAPTCHA service (out of scope for "no paid services").
 - **Old duplicate Vercel project** — a stale second Vercel project from an early setup attempt was flagged during deployment; confirmed deleted at the time, worth a quick re-check before final handover.
 
 ---
@@ -338,12 +339,13 @@ src/
     admin/fetch-bookings.ts           Shared query logic for الحجوزات + طلابي
     tutor/                            resolve-tutor.ts, get-tutor-credentials.ts
     excel/                            build-workbook.ts, build-monthly-workbook.ts
+    rate-limit/                       check.ts (server-only), message.ts (plain constant, client-safe)
     validation/booking.ts             Zod schemas
     utils/format-month.ts
   types/                              booking.ts, monthly.ts
   proxy.ts                            Auth-gate middleware for /admin/*
 supabase/
-  migrations/                        24 files, 0001 through 0024, applied in order via SQL Editor
+  migrations/                        25 files, 0001 through 0025, applied in order via SQL Editor
 scripts/
   reset-all-data.sql                 Full data wipe (manual, pre-handover use)
 PENDING.md                           Living launch-readiness / open-items note

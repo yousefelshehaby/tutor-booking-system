@@ -12,6 +12,7 @@ import {
 } from "@/app/[tutorSlug]/book/reservation-actions";
 import { retryPayment } from "@/lib/booking/retry-payment";
 import { phoneSchema } from "@/lib/validation/booking";
+import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
 import type { EligibleBooking } from "@/types/monthly";
 import type { PaymentMethod } from "@/types/booking";
 
@@ -72,6 +73,12 @@ export function PhoneFirstEntry({
       setLoading(false);
       setBookings(eligible.bookings);
       setStep("pay");
+      return;
+    }
+
+    if (eligible.error === RATE_LIMIT_MESSAGE) {
+      setLoading(false);
+      setError(eligible.error);
       return;
     }
 

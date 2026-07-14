@@ -4,6 +4,7 @@ import { createAnonServerClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { initiatePayment } from "@/lib/paymob/initiate-payment";
 import { getTutorPaymobCredentials } from "@/lib/tutor/get-tutor-credentials";
+import { checkLookupRateLimit } from "@/lib/rate-limit/check";
 import type { PaymentMethod } from "@/types/booking";
 
 export interface ActiveReservation {
@@ -21,6 +22,14 @@ export async function findActiveReservation(params: {
   tutorId: string;
   phone: string;
 }): Promise<ActiveReservation | null> {
+  // Shares the "lookup" bucket with findEligibleBookings (the same phone
+  // submit in PhoneFirstEntry always checks that one first) so this
+  // rarely trips on its own — kept as its own check for defense in depth
+  // rather than a hard error, since this action's return shape has no
+  // room for a distinct rate-limit message.
+  const allowed = await checkLookupRateLimit("lookup", params.phone);
+  if (!allowed) return null;
+
   const supabase = createAnonServerClient();
   await supabase.rpc("expire_stale_reservations");
 
