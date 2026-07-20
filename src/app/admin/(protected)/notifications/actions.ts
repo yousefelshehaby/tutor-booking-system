@@ -4,7 +4,12 @@ import { createAdminServerClient } from "@/lib/supabase/admin-server";
 
 export interface AdminNotification {
   id: string;
-  type: "student_note" | "ta_request_submitted" | "ta_request_resolved";
+  type:
+    | "student_note"
+    | "ta_request_submitted"
+    | "ta_request_resolved"
+    | "waitlist_request_submitted"
+    | "waitlist_seat_available";
   student_name: string | null;
   booking_code: string | null;
   grade_name: string | null;

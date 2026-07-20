@@ -46,3 +46,19 @@ export const bookingSubmitSchema = z
   });
 
 export type BookingSubmitInput = z.infer<typeof bookingSubmitSchema>;
+
+export const waitlistJoinSchema = z
+  .object({
+    tutorId: z.uuid(),
+    gradeId: z.uuid("من فضلك اختر الصف الدراسي"),
+    groupId: z.uuid("من فضلك اختر المجموعة"),
+    studentName: nameSchema,
+    studentPhone: phoneSchema,
+    guardianPhone: phoneSchema,
+  })
+  .refine((data) => data.studentPhone !== data.guardianPhone, {
+    message: "رقم ولي الأمر يجب أن يكون مختلفًا عن رقم الطالب",
+    path: ["guardianPhone"],
+  });
+
+export type WaitlistJoinInput = z.infer<typeof waitlistJoinSchema>;

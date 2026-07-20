@@ -11,6 +11,7 @@ const FULL_NAV_LINKS = [
   { href: "/admin/grades", label: "الصفوف الدراسية" },
   { href: "/admin/groups", label: "المجموعات" },
   { href: "/admin/bookings", label: "الحجوزات" },
+  { href: "/admin/waitlist", label: "قائمة الانتظار" },
   { href: "/admin/monthly-payments", label: "المدفوعات الشهرية" },
   { href: "/admin/settings", label: "الإعدادات" },
   { href: "/admin/tas", label: "المساعدون" },
@@ -19,6 +20,7 @@ const FULL_NAV_LINKS = [
 const TA_NAV_LINKS = [
   { href: "/admin/students", label: "طلابي" },
   { href: "/admin/bookings", label: "الحجوزات" },
+  { href: "/admin/waitlist", label: "قائمة الانتظار" },
 ];
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {

@@ -10,14 +10,14 @@ import {
   payExistingReservation,
   type ActiveReservation,
 } from "@/app/[tutorSlug]/book/reservation-actions";
+import { findWaitlistEntry, type WaitlistEntry } from "@/app/[tutorSlug]/book/waitlist-actions";
 import { retryPayment } from "@/lib/booking/retry-payment";
 import { phoneSchema } from "@/lib/validation/booking";
 import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
-import { CASH_PAYMENT_EXPIRY_HINT } from "@/lib/booking/payment-options";
 import type { EligibleBooking } from "@/types/monthly";
 import type { PaymentMethod } from "@/types/booking";
 
-type Step = "phone" | "book_cta" | "pay" | "reservation";
+type Step = "phone" | "book_cta" | "pay" | "reservation" | "waitlist";
 
 const PAYMENT_OPTIONS: { value: Exclude<PaymentMethod, "reserve_only">; label: string; icon: string }[] = [
   { value: "card", label: "بطاقة بنكية", icon: "💳" },
@@ -52,6 +52,7 @@ export function PhoneFirstEntry({
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<EligibleBooking[]>([]);
   const [reservation, setReservation] = useState<ActiveReservation | null>(null);
+  const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
   const [choosingMethod, setChoosingMethod] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function PhoneFirstEntry({
     e.preventDefault();
     setError(null);
     setReservation(null);
+    setWaitlistEntry(null);
     setChoosingMethod(false);
     setPayError(null);
 
@@ -86,11 +88,20 @@ export function PhoneFirstEntry({
     }
 
     const activeReservation = await findActiveReservation({ tutorId, phone });
-    setLoading(false);
 
     if (activeReservation) {
+      setLoading(false);
       setReservation(activeReservation);
       setStep("reservation");
+      return;
+    }
+
+    const waitlisted = await findWaitlistEntry({ tutorId, phone });
+    setLoading(false);
+
+    if (waitlisted) {
+      setWaitlistEntry(waitlisted);
+      setStep("waitlist");
     } else {
       setStep("book_cta");
     }
@@ -165,7 +176,7 @@ export function PhoneFirstEntry({
             <p className="text-sm font-semibold text-yellow-800">
               {onlinePaymentsEnabled
                 ? `عندك حجز غير مدفوع بالفعل — متبقي ${hoursRemaining(reservation.expires_at)} ساعة على انتهاء حجزك، بعدها هيتم إلغاؤه تلقائيًا.`
-                : `تم الحجز — الدفع نقدًا عند المدرس، وسيتم تأكيد حجزك عند الدفع. متبقي ${hoursRemaining(reservation.expires_at)} ساعة، ${CASH_PAYMENT_EXPIRY_HINT}.`}
+                : `تم الحجز — الدفع نقدًا عند المدرس، وسيتم تأكيد حجزك عند الدفع. متبقي ${hoursRemaining(reservation.expires_at)} ساعة، وإلا سيُلغى الحجز تلقائيًا.`}
             </p>
           </div>
         ) : (
@@ -216,6 +227,26 @@ export function PhoneFirstEntry({
 
         {payError && !choosingMethod && <p className="text-sm text-red-600">{payError}</p>}
 
+        <button type="button" onClick={() => setStep("phone")} className="text-sm text-zinc-500 hover:underline">
+          رقم مختلف
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "waitlist" && waitlistEntry) {
+    return (
+      <div className="flex flex-col gap-4 text-center" dir="rtl">
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <p className="font-semibold text-blue-900">
+            أنت على قائمة الانتظار لمجموعة {waitlistEntry.group_name}
+          </p>
+          <p className="mt-1 text-sm text-blue-800">{waitlistEntry.grade_name}</p>
+          <p className="mt-2 text-sm text-blue-800">
+            ترتيبك في قائمة الانتظار: <span className="font-bold">{waitlistEntry.position}</span>
+          </p>
+          <p className="mt-2 text-sm text-blue-800">سيتواصل معك المدرّس عند توفر مكان في المجموعة.</p>
+        </div>
         <button type="button" onClick={() => setStep("phone")} className="text-sm text-zinc-500 hover:underline">
           رقم مختلف
         </button>

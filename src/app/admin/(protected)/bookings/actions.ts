@@ -19,9 +19,18 @@ export async function markBookingPaid(id: string) {
 
 export async function cancelBooking(id: string) {
   const supabase = await createAdminServerClient();
-  const { error } = await supabase.from("bookings").update({ payment_status: "cancelled" }).eq("id", id);
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ payment_status: "cancelled" })
+    .eq("id", id)
+    .select("group_id")
+    .maybeSingle();
 
   if (error) return { error: "تعذر إلغاء الحجز" };
+
+  if (data?.group_id) {
+    await supabase.rpc("notify_waitlist_seat_freed", { p_group_id: data.group_id });
+  }
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/students");
@@ -35,13 +44,19 @@ export async function archiveBooking(id: string): Promise<{ error: string } | { 
   } = await supabase.auth.getUser();
   if (!user) return { error: "الجلسة منتهية" };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("bookings")
     .update({ archived_at: new Date().toISOString(), archived_by: user.id })
     .eq("id", id)
-    .is("archived_at", null);
+    .is("archived_at", null)
+    .select("group_id")
+    .maybeSingle();
 
   if (error) return { error: "تعذر حذف الطالب" };
+
+  if (data?.group_id) {
+    await supabase.rpc("notify_waitlist_seat_freed", { p_group_id: data.group_id });
+  }
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/students");

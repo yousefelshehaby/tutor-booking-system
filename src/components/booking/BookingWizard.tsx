@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ProgressIndicator } from "@/components/booking/ProgressIndicator";
 import { Step1PersonalInfo } from "@/components/booking/Step1PersonalInfo";
 import { Step2Grade } from "@/components/booking/Step2Grade";
-import { Step3Group } from "@/components/booking/Step3Group";
+import { Step3Group, type WaitlistJoined } from "@/components/booking/Step3Group";
 import { Step4Payment } from "@/components/booking/Step4Payment";
 import { submitBooking } from "@/app/[tutorSlug]/book/actions";
 import { Button } from "@/components/ui/Button";
@@ -55,6 +55,7 @@ export function BookingWizard({
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState<WaitlistJoined | null>(null);
 
   function goToStep(next: number) {
     router.push(`/${tutorSlug}/book?step=${next}`, { scroll: false });
@@ -101,6 +102,38 @@ export function BookingWizard({
     }
   }
 
+  if (waitlistJoined) {
+    return (
+      <div className="w-full max-w-lg" dir="rtl">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-5">
+            <p className="font-semibold text-blue-900">
+              {waitlistJoined.alreadyExisting
+                ? `أنت بالفعل على قائمة الانتظار لمجموعة ${waitlistJoined.groupName}`
+                : `تم إضافتك لقائمة الانتظار لمجموعة ${waitlistJoined.groupName}`}
+            </p>
+            <p className="mt-2 text-sm text-blue-800">
+              ترتيبك في قائمة الانتظار: <span className="font-bold">{waitlistJoined.position}</span>
+            </p>
+            <p className="mt-2 text-sm text-blue-800">
+              سيتواصل معك المدرّس عند توفر مكان في المجموعة.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setWaitlistJoined(null);
+              goToStep(1);
+            }}
+          >
+            الرجوع لبداية الحجز
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-lg" dir="rtl">
       <ProgressIndicator currentStep={step} />
@@ -131,8 +164,12 @@ export function BookingWizard({
           tutorId={tutorId}
           gradeId={formData.gradeId}
           value={formData.groupId}
+          studentName={formData.studentName}
+          studentPhone={formData.studentPhone}
+          guardianPhone={formData.guardianPhone}
           onNext={handleGroupNext}
           onBack={() => goToStep(2)}
+          onWaitlistJoined={setWaitlistJoined}
         />
       )}
       {step === 3 && !formData.gradeId && (
