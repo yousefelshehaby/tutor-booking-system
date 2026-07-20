@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { markBookingPaid, cancelBooking } from "@/app/admin/(protected)/bookings/actions";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 import { StudentNotes } from "@/components/admin/StudentNotes";
+import { MoveStudentDialog } from "@/components/admin/MoveStudentDialog";
 import type { TutorOption } from "@/components/admin/GradesManager";
 
 export interface AdminBooking {
@@ -77,6 +78,7 @@ export function BookingsTable({
   const router = useRouter();
   const [q, setQ] = useState(filters.q);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [moveDialogId, setMoveDialogId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   function updateParams(next: Partial<Filters & { page: string }>) {
@@ -258,6 +260,14 @@ export function BookingsTable({
                               </button>
                             </>
                           )}
+                        {!readOnly && (
+                          <button
+                            onClick={() => setMoveDialogId(booking.id)}
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            نقل لمجموعة أخرى
+                          </button>
+                        )}
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : booking.id)}
                           className="font-medium text-blue-600 hover:underline"
@@ -302,6 +312,17 @@ export function BookingsTable({
             </button>
           ))}
         </div>
+      )}
+
+      {moveDialogId && (
+        <MoveStudentDialog
+          bookingId={moveDialogId}
+          onClose={() => setMoveDialogId(null)}
+          onMoved={() => {
+            setMoveDialogId(null);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

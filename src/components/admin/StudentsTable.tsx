@@ -12,6 +12,7 @@ import {
 import { getMonthlyStripForBooking, type MonthlyStripItem } from "@/app/admin/(protected)/students/actions";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
 import { StudentNotes } from "@/components/admin/StudentNotes";
+import { MoveStudentDialog } from "@/components/admin/MoveStudentDialog";
 import { formatMonth } from "@/lib/utils/format-month";
 import type { TutorOption } from "@/components/admin/GradesManager";
 
@@ -323,7 +324,9 @@ function StudentRow({
   onArchive: () => void;
   onRestore: () => void;
 }) {
+  const router = useRouter();
   const [strip, setStrip] = useState<MonthlyStripItem[] | null>(null);
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
 
   function handleToggle() {
     onToggle();
@@ -431,6 +434,12 @@ function StudentRow({
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => setShowMoveDialog(true)}
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      نقل لمجموعة أخرى
+                    </button>
                     <button onClick={onArchive} className="font-medium text-red-600 hover:underline">
                       حذف الطالب
                     </button>
@@ -446,6 +455,17 @@ function StudentRow({
           </div>
         )}
       </div>
+
+      {showMoveDialog && (
+        <MoveStudentDialog
+          bookingId={student.id}
+          onClose={() => setShowMoveDialog(false)}
+          onMoved={() => {
+            setShowMoveDialog(false);
+            router.refresh();
+          }}
+        />
+      )}
     </Fragment>
   );
 }
