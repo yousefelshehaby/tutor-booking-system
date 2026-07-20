@@ -10,6 +10,9 @@ export function SettingsForm({ settings }: { settings: Settings }) {
   const router = useRouter();
   const [bookingOpen, setBookingOpen] = useState(settings.booking_open);
   const [monthlyPaymentOpen, setMonthlyPaymentOpen] = useState(settings.monthly_payment_open);
+  const [onlinePaymentsEnabled, setOnlinePaymentsEnabled] = useState(
+    settings.online_payments_enabled
+  );
   const [currentMonth, setCurrentMonth] = useState(settings.current_month);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -24,6 +27,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
     const result = await updateSettings({
       booking_open: bookingOpen,
       monthly_payment_open: monthlyPaymentOpen,
+      online_payments_enabled: onlinePaymentsEnabled,
       current_month: currentMonth,
     });
 
@@ -63,6 +67,22 @@ export function SettingsForm({ settings }: { settings: Settings }) {
           className="h-5 w-5"
         />
       </label>
+
+      <label className="flex items-center justify-between">
+        <span className="text-sm font-medium text-zinc-700">تفعيل الدفع الإلكتروني</span>
+        <input
+          type="checkbox"
+          checked={onlinePaymentsEnabled}
+          onChange={(e) => setOnlinePaymentsEnabled(e.target.checked)}
+          className="h-5 w-5"
+        />
+      </label>
+      {!onlinePaymentsEnabled && (
+        <p className="-mt-3 text-xs text-zinc-500">
+          طالما الدفع الإلكتروني معطّل، سيظهر للطلاب خيار &quot;الدفع نقدًا&quot; فقط، وخيارات
+          البطاقة/المحفظة/فوري ستظهر معطّلة مع ملاحظة أنها قريبًا.
+        </p>
+      )}
 
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700">الشهر الحالي</label>

@@ -13,6 +13,7 @@ import {
 import { retryPayment } from "@/lib/booking/retry-payment";
 import { phoneSchema } from "@/lib/validation/booking";
 import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit/message";
+import { CASH_PAYMENT_EXPIRY_HINT } from "@/lib/booking/payment-options";
 import type { EligibleBooking } from "@/types/monthly";
 import type { PaymentMethod } from "@/types/booking";
 
@@ -37,11 +38,13 @@ export function PhoneFirstEntry({
   tutorSlug,
   bookingOpen,
   monthlyPaymentOpen,
+  onlinePaymentsEnabled,
 }: {
   tutorId: string;
   tutorSlug: string;
   bookingOpen: boolean;
   monthlyPaymentOpen: boolean;
+  onlinePaymentsEnabled: boolean;
 }) {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -160,8 +163,9 @@ export function PhoneFirstEntry({
         {reservation.expires_at ? (
           <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-4">
             <p className="text-sm font-semibold text-yellow-800">
-              عندك حجز غير مدفوع بالفعل — متبقي {hoursRemaining(reservation.expires_at)} ساعة على
-              انتهاء حجزك، بعدها هيتم إلغاؤه تلقائيًا.
+              {onlinePaymentsEnabled
+                ? `عندك حجز غير مدفوع بالفعل — متبقي ${hoursRemaining(reservation.expires_at)} ساعة على انتهاء حجزك، بعدها هيتم إلغاؤه تلقائيًا.`
+                : `تم الحجز — الدفع نقدًا عند المدرس، وسيتم تأكيد حجزك عند الدفع. متبقي ${hoursRemaining(reservation.expires_at)} ساعة، ${CASH_PAYMENT_EXPIRY_HINT}.`}
             </p>
           </div>
         ) : (
@@ -170,36 +174,44 @@ export function PhoneFirstEntry({
           </div>
         )}
 
-        {choosingMethod ? (
-          <div className="flex flex-col gap-2">
-            {PAYMENT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                disabled={paySubmitting}
-                onClick={() => handlePayReservation(opt.value)}
-                className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-3 text-sm hover:border-zinc-300 disabled:opacity-50"
-              >
-                <span>{opt.icon}</span>
-                <span>{opt.label}</span>
-              </button>
-            ))}
-            {payError && <p className="text-sm text-red-600">{payError}</p>}
-          </div>
+        {onlinePaymentsEnabled ? (
+          choosingMethod ? (
+            <div className="flex flex-col gap-2">
+              {PAYMENT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={paySubmitting}
+                  onClick={() => handlePayReservation(opt.value)}
+                  className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-3 text-sm hover:border-zinc-300 disabled:opacity-50"
+                >
+                  <span>{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+              {payError && <p className="text-sm text-red-600">{payError}</p>}
+            </div>
+          ) : (
+            <Button
+              type="button"
+              disabled={paySubmitting}
+              onClick={() => {
+                if (reservation.payment_method === "reserve_only") {
+                  setChoosingMethod(true);
+                } else {
+                  handlePayReservation(reservation.payment_method as Exclude<PaymentMethod, "reserve_only">);
+                }
+              }}
+            >
+              {paySubmitting ? "جاري التحويل..." : "ادفع الآن"}
+            </Button>
+          )
         ) : (
-          <Button
-            type="button"
-            disabled={paySubmitting}
-            onClick={() => {
-              if (reservation.payment_method === "reserve_only") {
-                setChoosingMethod(true);
-              } else {
-                handlePayReservation(reservation.payment_method as Exclude<PaymentMethod, "reserve_only">);
-              }
-            }}
-          >
-            {paySubmitting ? "جاري التحويل..." : "ادفع الآن"}
-          </Button>
+          reservation.payment_method !== "reserve_only" && (
+            <p className="text-sm text-zinc-500">
+              الدفع الإلكتروني معطّل مؤقتًا — من فضلك تواصل مع المدرّس للدفع نقدًا.
+            </p>
+          )
         )}
 
         {payError && !choosingMethod && <p className="text-sm text-red-600">{payError}</p>}
@@ -240,6 +252,7 @@ export function PhoneFirstEntry({
       tutorSlug={tutorSlug}
       initialBookings={bookings}
       monthlyPaymentOpen={monthlyPaymentOpen}
+      onlinePaymentsEnabled={onlinePaymentsEnabled}
     />
   );
 }

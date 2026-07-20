@@ -10,6 +10,10 @@ import {
   payMonth,
 } from "@/app/[tutorSlug]/monthly/actions";
 import { formatMonth } from "@/lib/utils/format-month";
+import {
+  ONLINE_METHOD_OPTIONS,
+  ONLINE_PAYMENTS_COMING_SOON_NOTE,
+} from "@/lib/booking/payment-options";
 import type { PaymentMethod } from "@/types/booking";
 import type { AccountStatementHeader, EligibleBooking, MonthlyPaymentStatus } from "@/types/monthly";
 
@@ -47,6 +51,8 @@ interface Props {
   initialBookings?: EligibleBooking[];
   /** Statement is always viewable; this only controls whether "ادفع" buttons show. */
   monthlyPaymentOpen: boolean;
+  /** Pre-launch cash mode: when false, card/wallet/fawry are shown disabled with no way to pay online. */
+  onlinePaymentsEnabled: boolean;
   /** Pre-fills the phone lookup (e.g. arriving from /my-account) — student still confirms with "بحث". */
   initialPhone?: string;
 }
@@ -56,6 +62,7 @@ export function MonthlyFlow({
   tutorSlug,
   initialBookings,
   monthlyPaymentOpen,
+  onlinePaymentsEnabled,
   initialPhone,
 }: Props) {
   const router = useRouter();
@@ -309,7 +316,7 @@ export function MonthlyFlow({
                   </p>
                 )}
 
-                {!m.is_paid && monthlyPaymentOpen && (
+                {!m.is_paid && monthlyPaymentOpen && onlinePaymentsEnabled && (
                   <div className="mt-3">
                     {payingMonth === m.month ? (
                       <div className="flex flex-col gap-2">
@@ -346,6 +353,25 @@ export function MonthlyFlow({
                         ادفع {Number(m.amount).toLocaleString("ar-EG")} جنيه
                       </Button>
                     )}
+                  </div>
+                )}
+
+                {!m.is_paid && monthlyPaymentOpen && !onlinePaymentsEnabled && (
+                  <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-zinc-500">
+                      {ONLINE_PAYMENTS_COMING_SOON_NOTE}
+                    </p>
+                    <div className="flex flex-col gap-2 opacity-50">
+                      {ONLINE_METHOD_OPTIONS.map((opt) => (
+                        <div
+                          key={opt.value}
+                          className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                        >
+                          <span>{opt.icon}</span>
+                          <span>{opt.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

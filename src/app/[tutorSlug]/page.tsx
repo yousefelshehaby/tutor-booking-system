@@ -16,12 +16,13 @@ export default async function LandingPage({
   const supabase = createAnonServerClient();
   const { data: settings } = await supabase
     .from("settings")
-    .select("tutor_id, booking_open, monthly_payment_open, current_month")
+    .select("tutor_id, booking_open, monthly_payment_open, online_payments_enabled, current_month")
     .eq("tutor_id", tutor.id)
     .maybeSingle<Settings>();
 
   const bookingOpen = settings?.booking_open ?? true;
   const monthlyPaymentOpen = settings?.monthly_payment_open ?? true;
+  const onlinePaymentsEnabled = settings?.online_payments_enabled ?? false;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -48,6 +49,7 @@ export default async function LandingPage({
               tutorSlug={tutor.slug}
               bookingOpen={bookingOpen}
               monthlyPaymentOpen={monthlyPaymentOpen}
+              onlinePaymentsEnabled={onlinePaymentsEnabled}
             />
           </div>
         </div>

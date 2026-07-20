@@ -32,7 +32,15 @@ function readStepFromUrl(raw: string | null): number {
   return parsed;
 }
 
-export function BookingWizard({ tutorId, tutorSlug }: { tutorId: string; tutorSlug: string }) {
+export function BookingWizard({
+  tutorId,
+  tutorSlug,
+  onlinePaymentsEnabled,
+}: {
+  tutorId: string;
+  tutorSlug: string;
+  onlinePaymentsEnabled: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const step = readStepFromUrl(searchParams.get("step"));
@@ -138,6 +146,7 @@ export function BookingWizard({ tutorId, tutorSlug }: { tutorId: string; tutorSl
           onBack={() => goToStep(3)}
           submitting={submitting}
           submitError={submitError}
+          onlinePaymentsEnabled={onlinePaymentsEnabled}
         />
       )}
       {step === 4 && (!formData.gradeId || !formData.groupId) && (

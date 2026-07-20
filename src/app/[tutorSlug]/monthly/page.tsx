@@ -17,11 +17,12 @@ export default async function MonthlyPaymentPage({
   const supabase = createAnonServerClient();
   const { data: settings } = await supabase
     .from("settings")
-    .select("monthly_payment_open")
+    .select("monthly_payment_open, online_payments_enabled")
     .eq("tutor_id", tutor.id)
-    .maybeSingle<Pick<Settings, "monthly_payment_open">>();
+    .maybeSingle<Pick<Settings, "monthly_payment_open" | "online_payments_enabled">>();
 
   const monthlyPaymentOpen = settings?.monthly_payment_open ?? true;
+  const onlinePaymentsEnabled = settings?.online_payments_enabled ?? false;
 
   return (
     <main className="flex flex-1 flex-col items-center px-4 py-8 sm:px-6 sm:py-10" dir="rtl">
@@ -31,6 +32,7 @@ export default async function MonthlyPaymentPage({
           tutorId={tutor.id}
           tutorSlug={tutor.slug}
           monthlyPaymentOpen={monthlyPaymentOpen}
+          onlinePaymentsEnabled={onlinePaymentsEnabled}
           initialPhone={phone}
         />
       </div>

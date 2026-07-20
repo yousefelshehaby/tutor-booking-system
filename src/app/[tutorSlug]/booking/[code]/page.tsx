@@ -2,6 +2,10 @@ import Link from "next/link";
 import { getBookingByCode } from "@/lib/booking/get-booking";
 import { RetryPaymentButton } from "@/components/booking/RetryPaymentButton";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/booking/labels";
+import { CASH_PAYMENT_EXPIRY_HINT } from "@/lib/booking/payment-options";
+import { resolveTutorOrNotFound } from "@/lib/tutor/resolve-tutor";
+import { createAnonServerClient } from "@/lib/supabase/server";
+import type { Settings } from "@/types/monthly";
 
 const STATUS_CLASSNAMES: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -16,7 +20,19 @@ export default async function BookingDetailsPage({
   params: Promise<{ tutorSlug: string; code: string }>;
 }) {
   const { tutorSlug, code } = await params;
-  const booking = await getBookingByCode(code);
+  const [booking, tutor] = await Promise.all([
+    getBookingByCode(code),
+    resolveTutorOrNotFound(tutorSlug),
+  ]);
+
+  const supabase = createAnonServerClient();
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("online_payments_enabled")
+    .eq("tutor_id", tutor.id)
+    .maybeSingle<Pick<Settings, "online_payments_enabled">>();
+  const onlinePaymentsEnabled = settings?.online_payments_enabled ?? false;
+  const isCashMode = !onlinePaymentsEnabled;
 
   if (!booking) {
     return (
@@ -30,6 +46,9 @@ export default async function BookingDetailsPage({
     );
   }
 
+  const isCashBooking = booking.payment_method === "reserve_only" && isCashMode;
+  const paymentMethodLabel = isCashBooking ? "الدفع نقدًا" : PAYMENT_METHOD_LABELS[booking.payment_method];
+
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-10" dir="rtl">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -41,6 +60,14 @@ export default async function BookingDetailsPage({
             {PAYMENT_STATUS_LABELS[booking.payment_status]}
           </span>
         </div>
+
+        {isCashBooking && booking.payment_status === "pending" && (
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-center">
+            <p className="text-sm font-semibold text-green-800">
+              تم الحجز — الدفع نقدًا عند المدرس، وسيتم تأكيد حجزك عند الدفع.
+            </p>
+          </div>
+        )}
 
         <div className="mt-6 rounded-xl bg-zinc-50 p-4 text-center">
           <p className="text-sm text-zinc-500">كود الحجز</p>
@@ -54,16 +81,16 @@ export default async function BookingDetailsPage({
           <Row label="الصف الدراسي" value={booking.grade_name} />
           <Row label="المجموعة" value={booking.group_name} />
           <Row label="المواعيد" value={`${booking.group_days} — ${booking.group_time}`} />
-          <Row label="طريقة الدفع" value={PAYMENT_METHOD_LABELS[booking.payment_method]} />
+          <Row label="طريقة الدفع" value={paymentMethodLabel} />
           <Row label="المبلغ" value={`${booking.amount} جنيه`} />
         </dl>
 
         {booking.payment_method === "reserve_only" && booking.expires_at && (
           <div className="mt-6 rounded-xl border border-yellow-300 bg-yellow-50 p-4">
             <p className="text-sm font-semibold text-yellow-800">
-              تنبيه: يجب إتمام الدفع قبل{" "}
-              {new Date(booking.expires_at).toLocaleString("ar-EG")} وإلا سيتم إلغاء الحجز
-              تلقائيًا.
+              {isCashBooking
+                ? CASH_PAYMENT_EXPIRY_HINT
+                : `تنبيه: يجب إتمام الدفع قبل ${new Date(booking.expires_at).toLocaleString("ar-EG")} وإلا سيتم إلغاء الحجز تلقائيًا.`}
             </p>
           </div>
         )}
@@ -71,7 +98,13 @@ export default async function BookingDetailsPage({
         {booking.payment_method !== "reserve_only" && booking.payment_status === "pending" && (
           <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
             <p className="text-sm text-blue-800">لم يتم إتمام الدفع بعد لهذا الحجز.</p>
-            <RetryPaymentButton tutorSlug={tutorSlug} bookingCode={booking.booking_code} />
+            {onlinePaymentsEnabled ? (
+              <RetryPaymentButton tutorSlug={tutorSlug} bookingCode={booking.booking_code} />
+            ) : (
+              <p className="mt-2 text-xs text-blue-700">
+                الدفع الإلكتروني معطّل مؤقتًا — من فضلك تواصل مع المدرّس للدفع نقدًا.
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@ export default async function AdminSettingsPage() {
   if (tutorId) {
     const { data } = await supabase
       .from("settings")
-      .select("tutor_id, booking_open, monthly_payment_open, current_month")
+      .select("tutor_id, booking_open, monthly_payment_open, online_payments_enabled, current_month")
       .eq("tutor_id", tutorId)
       .maybeSingle<Settings>();
     settings = data;
@@ -21,6 +21,7 @@ export default async function AdminSettingsPage() {
     tutor_id: tutorId ?? "",
     booking_open: true,
     monthly_payment_open: true,
+    online_payments_enabled: false,
     current_month: new Date().toISOString().slice(0, 7),
   };
 

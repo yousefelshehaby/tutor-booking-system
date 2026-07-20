@@ -40,6 +40,12 @@ export default async function TutorProfilePage({
     .eq("role", "tutor")
     .single();
 
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("online_payments_enabled")
+    .eq("tutor_id", tutorId)
+    .maybeSingle<{ online_payments_enabled: boolean }>();
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -50,7 +56,11 @@ export default async function TutorProfilePage({
         <h1 className="text-2xl font-bold text-zinc-900">{tutor.name}</h1>
       </div>
 
-      <TutorProfileEditor tutor={tutor} adminEmail={adminUser?.email ?? null} />
+      <TutorProfileEditor
+        tutor={tutor}
+        adminEmail={adminUser?.email ?? null}
+        onlinePaymentsEnabled={settings?.online_payments_enabled ?? false}
+      />
     </div>
   );
 }

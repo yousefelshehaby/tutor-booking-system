@@ -10,6 +10,7 @@ import {
   generateTutorPassword,
   uploadTutorPhoto,
   updateTutorPaymobCredentials,
+  toggleTutorOnlinePayments,
 } from "@/app/admin/(protected)/tutors/actions";
 
 export interface TutorProfile {
@@ -33,9 +34,11 @@ export interface TutorProfile {
 export function TutorProfileEditor({
   tutor,
   adminEmail,
+  onlinePaymentsEnabled,
 }: {
   tutor: TutorProfile;
   adminEmail: string | null;
+  onlinePaymentsEnabled: boolean;
 }) {
   const router = useRouter();
 
@@ -46,7 +49,62 @@ export function TutorProfileEditor({
       <EmailSection tutorId={tutor.id} currentEmail={adminEmail} onSaved={() => router.refresh()} />
       <PasswordSection tutorId={tutor.id} />
       <PaymobSection tutor={tutor} onSaved={() => router.refresh()} />
+      <OnlinePaymentsSection
+        tutorId={tutor.id}
+        enabled={onlinePaymentsEnabled}
+        onSaved={() => router.refresh()}
+      />
     </div>
+  );
+}
+
+function OnlinePaymentsSection({
+  tutorId,
+  enabled,
+  onSaved,
+}: {
+  tutorId: string;
+  enabled: boolean;
+  onSaved: () => void;
+}) {
+  const [checked, setChecked] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleToggle(next: boolean) {
+    setChecked(next);
+    setSaving(true);
+    setError(null);
+
+    const result = await toggleTutorOnlinePayments(tutorId, next);
+
+    setSaving(false);
+    if ("error" in result) {
+      setError(result.error);
+      setChecked(!next);
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <Section title="وضع الدفع (قبل الإطلاق)">
+      <label className="flex items-center justify-between">
+        <span className="text-sm font-medium text-zinc-700">تفعيل الدفع الإلكتروني</span>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={saving}
+          onChange={(e) => handleToggle(e.target.checked)}
+          className="h-5 w-5"
+        />
+      </label>
+      <p className="mt-2 text-xs text-zinc-500">
+        طالما معطّل، سيرى الطلاب &quot;الدفع نقدًا&quot; فقط، وخيارات البطاقة/المحفظة/فوري
+        تظهر معطّلة مع ملاحظة أنها قريبًا.
+      </p>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </Section>
   );
 }
 

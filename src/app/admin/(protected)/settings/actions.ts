@@ -8,6 +8,7 @@ import { getCurrentAdmin } from "@/lib/auth/current-admin";
 const settingsSchema = z.object({
   booking_open: z.boolean(),
   monthly_payment_open: z.boolean(),
+  online_payments_enabled: z.boolean(),
   current_month: z.string().regex(/^\d{4}-\d{2}$/, "صيغة الشهر يجب أن تكون YYYY-MM"),
 });
 

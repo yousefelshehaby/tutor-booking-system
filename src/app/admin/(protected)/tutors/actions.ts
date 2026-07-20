@@ -89,6 +89,23 @@ export async function toggleTutorActive(
   return { success: true };
 }
 
+export async function toggleTutorOnlinePayments(
+  tutorId: string,
+  enabled: boolean
+): Promise<{ error: string } | { success: true }> {
+  const { isSuperAdmin } = await getCurrentAdmin();
+  if (!isSuperAdmin) return { error: "هذا الإجراء متاح فقط لمدير النظام" };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("settings")
+    .upsert({ tutor_id: tutorId, online_payments_enabled: enabled });
+  if (error) return { error: "تعذر تحديث حالة الدفع الإلكتروني" };
+
+  revalidatePath(`/admin/tutors/${tutorId}`);
+  return { success: true };
+}
+
 export async function resetAdminPassword(
   adminUserId: string,
   newPassword: string

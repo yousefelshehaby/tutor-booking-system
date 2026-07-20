@@ -2,6 +2,7 @@ export interface Settings {
   tutor_id: string;
   booking_open: boolean;
   monthly_payment_open: boolean;
+  online_payments_enabled: boolean;
   current_month: string;
 }
 
