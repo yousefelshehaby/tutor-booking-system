@@ -9,7 +9,8 @@ export interface AdminNotification {
     | "ta_request_submitted"
     | "ta_request_resolved"
     | "waitlist_request_submitted"
-    | "waitlist_seat_available";
+    | "waitlist_seat_available"
+    | "feedback_message_submitted";
   student_name: string | null;
   booking_code: string | null;
   grade_name: string | null;

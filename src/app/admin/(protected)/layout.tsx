@@ -50,7 +50,11 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   const navLinks = isTa
     ? TA_NAV_LINKS
     : isSuperAdmin
-      ? [...FULL_NAV_LINKS, { href: "/admin/tutors", label: "المدرّسون" }]
+      ? [
+          ...FULL_NAV_LINKS,
+          { href: "/admin/tutors", label: "المدرّسون" },
+          { href: "/admin/feedback", label: "الاقتراحات والشكاوى" },
+        ]
       : FULL_NAV_LINKS;
 
   return (

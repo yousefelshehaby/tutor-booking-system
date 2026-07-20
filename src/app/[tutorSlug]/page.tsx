@@ -54,7 +54,7 @@ export default async function LandingPage({
           </div>
         </div>
       </main>
-      <AdminFooterLink />
+      <AdminFooterLink tutorId={tutor.id} />
     </div>
   );
 }

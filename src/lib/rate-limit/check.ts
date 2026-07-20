@@ -44,6 +44,7 @@ export async function checkRateLimit(
 
 const LOOKUP_LIMIT = { maxHits: 8, windowSeconds: 60 };
 const BOOKING_LIMIT = { maxHits: 5, windowSeconds: 300 };
+const FEEDBACK_LIMIT = { maxHits: 3, windowSeconds: 600 };
 
 /**
  * Shared by every phone-lookup action (findEligibleBookings,
@@ -78,4 +79,14 @@ export async function checkBookingRateLimit(phone: string): Promise<boolean> {
   if (!phoneOk) return false;
 
   return true;
+}
+
+/**
+ * IP-only (sender phone is optional on the feedback form, so it can't be
+ * relied on as a bucket key) — a few submissions per 10 minutes is plenty
+ * for a real visitor while blocking a flood.
+ */
+export async function checkFeedbackRateLimit(): Promise<boolean> {
+  const ip = await getClientIp();
+  return checkRateLimit(`feedback:ip:${ip}`, FEEDBACK_LIMIT.maxHits, FEEDBACK_LIMIT.windowSeconds);
 }
